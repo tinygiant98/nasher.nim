@@ -9,16 +9,26 @@ type
   Options* = StringTableRef
 
   Package = object
+<<<<<<< HEAD
     name*, description*, version*, url*, modName*, modMinGameVersion*, branch*: string
     authors*, includes*, excludes*, filters*, flags*, updated*: seq[string]
+=======
+    name*, description*, version*, url*, modName*, modMinGameVersion*: string
+    authors*, includes*, excludes*, filters*, flags*, updated*, libraries*: seq[string]
+>>>>>>> f85d2bd... working on library functions
     targets*: seq[Target]
     rules*: seq[Rule]
 
   PackageRef* = ref Package
 
   Target* = object
+<<<<<<< HEAD
     name*, file*, description*, modName*, modMinGameVersion*, branch*: string
     includes*, excludes*, filters*, flags*: seq[string]
+=======
+    name*, file*, description*, modName*, modMinGameVersion*: string
+    includes*, excludes*, filters*, flags*, libraries*: seq[string]
+>>>>>>> f85d2bd... working on library functions
     rules*: seq[Rule]
 
   Rule* = tuple[pattern, dir: string]

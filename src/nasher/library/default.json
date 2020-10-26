@@ -1,0 +1,78 @@
+{
+  "aps_include.nss": {
+    "sha1": "5CBD940F959735550CC849D1540E90C7F9185CB7",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "aps_onload.nss": {
+    "sha1": "61105E5B4A40903ECEBAF80A0977B90EFEAA2528",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "area001.are": {
+    "sha1": "08C98937B1D8D8E0A56F169998124FA9D0BBFA0D",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "area001.gic": {
+    "sha1": "5FD4BA858FFDC269FCDA7733EF6B6446FA473A26",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "area001.git": {
+    "sha1": "D98F5559C35D89C1A39FED50DD4B633DD245E547",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "creaturepalcus.itp": {
+    "sha1": "6F6308D6EA20DD924193D64139094290B2A6334F",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "demo_createtable.nss": {
+    "sha1": "883FDAA5D677BF98F0E342CC62B27BB160519EA9",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "demo_loadvalue.nss": {
+    "sha1": "94024A10E637D7A7447D1DAA0D7A348D8B4ABDC0",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "demo_storevalue.nss": {
+    "sha1": "E8465437D7F2AF3C4708C3754B3B15B64F868AF3",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "doorpalcus.itp": {
+    "sha1": "D4E98ECE1090AC3B51A1D2372E8F1138B2CCD954",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "encounterpalcus.itp": {
+    "sha1": "884F4D4E258E9A180790D6C49545EE111EC99CFC",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "itempalcus.itp": {
+    "sha1": "651FF112AA45096F13A10F451146097F8A14A12E",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "module.ifo": {
+    "sha1": "4C04F40DBC1E5C44C15B6258230CB7290D35DB3E",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "placeablepalcus.itp": {
+    "sha1": "771A42650B71D20265CD3ABDA2D02E2B93A48D41",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "repute.fac": {
+    "sha1": "2D2A735E661163E9D395D957168E2589D3B00BA6",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "soundpalcus.itp": {
+    "sha1": "28BBDCA551B5FF295B26C3626D08CF5AC50CE07A",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "storepalcus.itp": {
+    "sha1": "6F4CC69E57CF93728EB5C25D24A25335BFA83C12",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "triggerpalcus.itp": {
+    "sha1": "770E26D28DD4802A48BF9E25412D16A87ABEF168",
+    "modified": "2020-10-25T01:21:55-04:00"
+  },
+  "waypointpalcus.itp": {
+    "sha1": "32FA25E970FCF109851311A248E9C3DBE56A1252",
+    "modified": "2020-10-25T01:21:55-04:00"
+  }
+}

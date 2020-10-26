@@ -1,0 +1,15 @@
+{
+  "core-framework": {
+    "url": "https://github.com/tinygiant98/nwn-core-framework",
+    "method": "git",
+    "description": "SM's core framework test library",
+    "license": "MIT",
+    "version": "latest"
+  },
+  "daz-stuff": {
+    "url": "file://etc/etc",
+    "method": "git",
+    "license": "BSD",
+    "version": "0.1.0"
+  }
+}
