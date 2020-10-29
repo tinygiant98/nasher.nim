@@ -1,29 +1,48 @@
 import json, os, times, std/sha1
-
 import cli
 
 type
   FileDetail = tuple[fileName, fileSum, savedSum: string, savedTime: Time]
 
-  Manifest = object
-    file: string
-    data: JsonNode
+  Manifest* = object
+    file*: string
+    data*: JsonNode
+
+  Library* = object
+    name*: string
+    path*: string
+    vcs*: string
+    description*: string
+    license*: string
 
 proc newManifest*(file: string): Manifest =
   Manifest(file: file, data: %* {})
 
+proc read*(manifest: var Manifest, file: string) =
+  try:
+    manifest.data = file.parseFile()
+  except IOError:
+    manifest.data = %* {}
+
 proc read*(manifest: var Manifest) =
-  let
-    path = getCurrentDir() / ".nasher" / manifest.file & ".json"
+  let path = getCurrentDir() / ".nasher" / manifest.file & ".json"
 
   try:
     manifest.data = path.parseFile()
   except IOError:
     manifest.data = %* {}
 
+proc write*(manifest: Manifest, target: string) =
+  # new version for the library system
+  # target should be the full path and file name
+  try:
+    createDir(splitPath(target).head)
+    target.writeFile(manifest.data.pretty)
+  except:
+    fatal("Could not write to library management file " & splitPath(target).tail)
+
 proc write*(manifest: Manifest) =
-  let
-    path = getCurrentDir() / ".nasher" / manifest.file & ".json"
+  let path = getCurrentDir() / ".nasher" / manifest.file & ".json"
 
   try:
     createDir(getCurrentDir() / ".nasher")
@@ -74,7 +93,8 @@ proc getChangedFiles*(manifest: Manifest, dir = getCurrentDir()): seq[FileDetail
     result.add((fileName, fileSum, savedSum, savedTime))
 
 proc update*(manifest: var Manifest, fileName, fileSum: string, fileTime: Time) =
-  manifest.data[fileName] = %* {"sha1": fileSum, "modified": $fileTime}
+  manifest.data[fileName] = %* {"sha1": fileSum,
+                                "modified": $fileTime}
 
 proc add*(manifest: var Manifest, file: string, fileTime: Time) =
   manifest.update(file.extractFilename, $file.secureHashFile, fileTime)
@@ -84,7 +104,22 @@ proc add*(manifest: var Manifest, srcFile, outFile: string) =
     fileName = outFile.extractFilename
     srcSum = $srcFile.secureHashFile
     outSum = $outFile.secureHashFile
-  manifest.data[fileName] = %* {"srcSum": srcSum, "outSum": outSum}
+  manifest.data[fileName] = %* {"srcSum": srcSum, 
+                                "outSum": outSum}
+
+proc add*(manifest: var Manifest, library: Library) =
+  manifest.data[library.name] = %* {"name": library.name,
+                                    "path": library.path,
+                                    "vcs": library.vcs,
+                                    "description": library.description,
+                                    "license": library.license}
+
+proc add*(manifest: var Manifest, library, path, vcs, description, license: string) =
+  manifest.data[library] = %* {"name": library,
+                               "path": path,
+                               "vcs": vcs, 
+                               "description": description,
+                               "license": license}
 
 proc delete*(manifest: var Manifest, file: string) =
   if manifest.data.hasKey(file):

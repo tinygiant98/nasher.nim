@@ -1,6 +1,10 @@
 # Package
 
+<<<<<<< HEAD
 version       = "0.13.0"
+=======
+version       = "0.0.1"
+>>>>>>> 89d5c54... more work!
 author        = "Michael A. Sinclair"
 description   = "A build tool for Neverwinter Nights projects"
 license       = "MIT"

@@ -1,5 +1,5 @@
 import os
-import utils/[cli, git, options]
+import utils/[cli, git, libraries, options]
 
 const
   helpInit* = """
@@ -54,6 +54,12 @@ proc init*(opts: Options, pkg: PackageRef): bool =
       success("initialized git repository")
     except:
       error("Could not initialize git repository: " & getCurrentExceptionMsg())
+
+  if askif("Initializing the library system will clone the nasher repo " & 
+          "containing the list of public libraries.  Do you want to continue?", default = Yes):
+    initLibraries()
+  else:
+    display("Skipping", "library system")
 
   success("project initialized")
 

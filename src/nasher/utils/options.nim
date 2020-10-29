@@ -3,7 +3,7 @@ from sequtils import toSeq
 from algorithm import sorted
 export strtabs
 
-import cli, git, shared
+import cli, git, libraries, shared
 
 type
   Options* = StringTableRef
@@ -36,7 +36,7 @@ type
 const
   nasherCommands =
     ["init", "list", "config", "convert", "compile", "pack", "install", "play",
-     "test", "serve", "unpack"]
+     "test", "serve", "unpack", "library"]
 
 proc `[]=`*[T: int | bool](opts: Options, key: string, value: T) =
   ## Overloaded ``[]=`` operator that converts value to a string before setting
@@ -236,6 +236,12 @@ proc parseCmdLine(opts: Options) =
               opts["files"] = opts["files"] & ";" & val
           else:
             opts[key]= val
+        of "library":
+          case key
+          of "i", "install":
+            opts["library-install"] = "true"
+          of "l", "list":
+            opts["library-list"] = "true"
         else:
           opts[key] = val
     else: discard
@@ -342,8 +348,12 @@ proc addTarget(pkg: PackageRef, target: var Target) =
 
     if target.includes.len == 0:
       target.includes = pkg.includes
+    target.includes.handleLibraries
+
     if target.excludes.len == 0:
       target.excludes = pkg.excludes
+    target.excludes.handleLibraries(display = false)
+
     if target.filters.len == 0:
       target.filters = pkg.filters
     if target.flags.len == 0:

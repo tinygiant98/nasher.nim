@@ -3,6 +3,18 @@ import cli
 
 from shared import withDir
 
+<<<<<<< HEAD
+=======
+proc gitExecCmd(cmd: string, default = ""): string {.discardable.} =
+  ## Runs ``cmd``, returning its output on success or ``default`` on error.
+  let (output, errCode) = execCmdEx(cmd)
+  if errCode != 0:
+    default
+  else:
+    # Remove trailing newline
+    output.strip
+
+>>>>>>> 89d5c54... more work!
 proc gitUser*: string =
   ## Returns the configured git username or "" on failure.
   let gitResult = execCmdEx("git config --get user.name")
@@ -15,9 +27,26 @@ proc gitEmail*: string =
   ## Returns the configured git email or "" on failure.
   let gitResult = execCmdEx("git config --get user.email")
 
+<<<<<<< HEAD
   if gitResult.exitCode == 0:
     gitResult.output.strip
   else: ""
+=======
+proc gitPull*(repo = getCurrentDir()) =
+  # pull the repo
+  withDir(repo):
+    gitExecCmd("git pull")
+
+proc gitClone*(dir = getCurrentDir(), repo, target: string) =
+  # clone repo into target
+  withDir(dir):
+    gitExecCmd("git clone " & repo & " " & target)
+
+proc gitRepo*(dir = getCurrentDir()): bool =
+  ## Returns whether ``dir`` is a git repo.
+  withDir(dir):
+    gitExecCmd("git rev-parse --is-inside-work-tree") != "true"
+>>>>>>> 89d5c54... more work!
 
 proc gitRemote*(repo = getCurrentDir()): string =
   withDir(repo):

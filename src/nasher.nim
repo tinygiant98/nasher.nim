@@ -1,6 +1,10 @@
 import os, strformat
 import nasher/[init, list, config, unpack, convert, compile, pack, install, launch]
+<<<<<<< HEAD
 import nasher/utils/[cli, git, options, shared]
+=======
+import nasher/utils/[cli, libraries, options, shared]
+>>>>>>> 89d5c54... more work!
 
 const
   NimblePkgVersion {.strdefine.} = "devel"
@@ -88,6 +92,9 @@ when isMainModule:
         unpack(opts, pkg)
     of "unpack":
       unpack(opts, pkg)
+    of "library":
+      if opts.get("library-install") == "true":
+        publishLibrary(pLocal)
     of "list":
       list(opts, pkg)
     of "convert", "compile", "pack", "install", "play", "test", "serve":
