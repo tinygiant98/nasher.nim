@@ -14,11 +14,15 @@ type
     vcs*: string
     description*: string
     license*: string
+    #dependencies*: JsonNode
+    #dependentof*: JsonNode
 
 proc newManifest*(file: string): Manifest =
   Manifest(file: file, data: %* {})
 
 proc read*(manifest: var Manifest, file: string) =
+  ## new version for the library system, allows passage of a
+  ## specific file
   try:
     manifest.data = file.parseFile()
   except IOError:

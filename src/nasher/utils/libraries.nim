@@ -1,5 +1,5 @@
-import json, os, parsecfg, strformat, strutils, uri
-import cli, git, manifest
+import json, os, parsecfg, sequtils, strformat, strutils, tables, uri
+import cli, git, manifest, shared
 
 ## Nasher Libraries Implementation
 ## 
@@ -81,7 +81,7 @@ import cli, git, manifest
 ##    sends a pull request against it.
 
 type
-  Publish* = enum
+  Sector* = enum
     private
     public
 
@@ -95,13 +95,15 @@ const
   masterFolder = "__library-master"
   installedLibraries = "installed.json"
   publicLibraries = masterFolder / "packages.json"
-  masterRepo = "https://github.com/tinygiant98/packages"
+  masterRepo = "https://github.com/tinygiant98/packages"  # eventually change this to a repo in SM's github
 
+#Works
 proc parseLibraryManifest(file: string): Manifest =
   ## Parses the passed file into a Manifest type
   result = newManifest(file)
   result.read(file)
 
+#Works
 proc newLibraryManifest(dir, file: string) =
   ## Creates a new library-specific manifest for "installed.json" and inserts and example entry
   let target = dir / file
@@ -113,7 +115,7 @@ proc newLibraryManifest(dir, file: string) =
 
   var manifest = parseLibraryManifest(file)
   manifest.add(masterFolder, 
-              "https://example.com/<username>/<repo>",
+               "https://example.com/<username>/<repo>",
                "git",
                "This is an example of an installed library manifest entry.  Removing this entry will " &
                 "have no effect on how the library system works, but this file should never be " &
@@ -121,6 +123,7 @@ proc newLibraryManifest(dir, file: string) =
                "Do whatever the fuck you want license (wtfpl.net)")
   manifest.write(target)
 
+#Works
 proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
   ## file cfg.  If not found, default is returned.
@@ -129,6 +132,7 @@ proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
   if result == "":
     result = default
 
+#Works
 proc getRequiredField(cfg: Config, section, key: string): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
   ## file cfg.  If not found, throws a fatal error.
@@ -138,36 +142,66 @@ proc getRequiredField(cfg: Config, section, key: string): string =
     fatal(fmt"You must include a value for the library's {key}.  Please insert a value " &
           fmt"for {key} in the {section} section of nasher.cfg")
 
+#Works
 proc getLibrariesDir(): string =
   ## Returns the base libraries directory (parent folder for all libraries)
+  ## 
+  ## This is where the default library location would be set
   getConfigDir() / "nasher" / "libraries"
 
+#Works
 proc getLibraryDir(library: string): string =
   ## Returns directory for a specified library
   getLibrariesDir() / library
 
+#Works
 proc isOnLibraryList(library, file: string): bool =
   ## Determines if library is referenced in file
   parseLibraryManifest(file).data.hasKey(library)
 
+#Works
 proc isAvailable(library: string): bool =
   ## Returns wehther library is on public libraries list
   library.isOnLibraryList(getLibrariesDir() / publicLibraries)
 
+#Works
 proc isInstalled(library: string): bool =
   ## Returns whether library is on installed libraries list
   library.isOnLibraryList(getLibrariesDir() / installedLibraries)
 
+#Works
 proc isLibrary(pattern: string): bool =
   ## Return whether pattern references a library
   pattern[0] == libraryFlag
 
+#TODO
 proc isUrl(path: string): bool =
   ## Returns whether parh is a URL
   # TODO - this is super-hacky.  Find a better way
   # Might fail on something like file://...
   parseUri(path).hostname.len > 0
 
+#Works, but is this the right way?
+proc addElements(json: var JsonNode, key: string, values: seq[string]) =
+  ## Adds unique values to json[key] array
+  ## 
+  ## This was originally meant to help create an array list of dependencies from a library
+  ## file, however, it might be better to create a JsonNode with {"parentlibrary":"childlibrary:release[branch]"}
+  ## This would allow us to checkout a specific release/branch for one parent and different one
+  ## when called by a different parent.
+  for value in values:
+    if %value notin json[key].getElems:
+      json[key].add %value
+
+#Works
+proc removeElements(json: var JsonNode, key: string, values: seq[string]) =
+  ## Removes elements from an array at json[key] if they are in values
+  var elements = json[key].getElems
+
+  elements.keepIf(proc (x: JsonNode): bool = x.getStr notin values)
+  json[key]= %elements
+
+#Works
 proc parseReference(pattern: string): Reference =
   ## Parse a pattern into a Reference.
   let tokens = split(split(pattern, "/")[0], {'[', ':'})
@@ -180,9 +214,11 @@ proc parseReference(pattern: string): Reference =
     else:
       reference.release = token
 
-  if reference.branch.len == 0:
+  # TODO probably need to get rid of these defaults.  If an empty string (or maybe "default")
+  # is returned, we can then go on to check other sources for a required branch/releease, such
+  # as a library's nasher.cfg, if it exists.
+  if reference.branch.len == 0 or not reference.branch.exists(reference.library.getLibraryDir):
     reference.branch = "master"
-    # TODO check for existence of specified branch
 
   if reference.release.len == 0:
     reference.release = "latest"
@@ -190,6 +226,7 @@ proc parseReference(pattern: string): Reference =
 
   result = reference
 
+#Works
 proc parseLibrary(): Library =
   ## Populates a Library (type) with data from the nasher.cfg in the current directory.
   ## TODO support hg
@@ -207,37 +244,58 @@ proc parseLibrary(): Library =
   library.name = cfg.getRequiredField("Package", "name")
   library.path = cfg.getOptionalField("Package", "url")
   library.vcs = 
-    if gitRepo(): "git"
+    if library.name.getLibraryDir.exists: "git"
     else: "none"
   library.description = cfg.getRequiredField("Package", "description")
   library.license = cfg.getOptionalField("Package", "license")
 
   result = library
 
-proc install(library: Library, libraries: var Manifest, publish: Publish = private) =
-  # adds the library to the installed manifest, does not clone, usually directly called for private
-  # library publishing/installation
+# See below, this will be the "private" uninstall
+proc uninstall(library: Library, libraries: var Manifest, status: Sector = private) =
+  echo "stuff"
 
-  # called by overloaded install for public installation after clone
+# Currently building support procedures to make this work
+# This will be the "public" uninstall and will call the private uninstall above
+proc uninstall(name: string) =
+  ## Removes a library from the installed libraries listing (installed.json) and, if the library
+  ## is public, deletes the associated files.  Dependent repos are also removed if they are not
+  ## dependents of any other libraries.
+  echo "stuff"
+
+  var
+    installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
+
+  let
+    targetDir = getLibraryDir(name)
+    library = installedManifest.data[name].to(Library)
+
+
+
+
+
+#Works
+proc install(library: Library, libraries: var Manifest, status: Sector = private) =
+  ## adds the library to the installed manifest, does not clone, usually directly called for private
+  ## library publishing/installation, indirectly called by overloaded install function below
+
   let libraryManifest = getLibrariesDir() / installedLibraries
 
   libraries.add(library)
   libraries.write(target = libraryManifest)
 
   if library.name.isInstalled:
-    success(fmt"Huzzah! {library.name} was successfully installed as a {publish} library")
+    success(fmt"Huzzah! {library.name} was successfully installed as a {status} library")
   else:
     fatal(fmt"{library.name} could not be installed.  File a bug report at ...")  
 
+#Workd
 proc install(name: string) =
   ## For use when installing public libraries.  Creates the target folder for the repository,
   ## clones the repo into the target folder and inserts an entry into "installed.json".  If repo
-  ## cannot be cloned, throws a non-fatal error.
+  ## cannot be cloned, throws a non-fatal error.  Checks for library dependencies and installs
+  ## those libraries if they are available.
   
-  # TODO check for dependencies after clone - should be in nasher.cfg
-  # Add a section to nasher.cfg ([Dependecies] or [Library]?) to identify dependencies.  Dependencies
-  # should be cloned and, when required, added to the include, exclude patterns during processing
-
   let
     target = getLibrariesDir() / name
     publicManifest = parseLibraryManifest(getLibrariesDir() / publicLibraries)
@@ -251,8 +309,35 @@ proc install(name: string) =
     
     display("Installing", fmt"library {name} from {library.path}")
     gitClone(getLibrariesDir(), library.path, library.name)
-    library.install(installedManifest)
-    
+    library.install(installedManifest, status = public)
+
+    # See if a nasher.cfg exists in the new repo, if so, parse for dependencies, check if they're on the
+    # primary listing and, if so, install, and repeat.
+    withDir(getLibrariesDir() / library.name):
+      var
+        cfg: Config
+
+      if fileExists(getCurrentDir() / "nasher.cfg"):
+        cfg = loadConfig(getCurrentDir() / "nasher.cfg")
+
+        if cfg.hasKey("Dependencies") and cfg["Dependencies"].hasKey("requires"):
+          for key, value in cfg["Dependencies"]:
+            if key == "requires":
+              if value.isAvailable and not value.isInstalled:
+                debug("Library", fmt"attempting to install {value} as a dependency of {library.name}")
+                value.install
+              else:
+                error(fmt"could not install library {value} as a dependency of {library.name}; " &
+                         "the library is either not published or already installed.")
+        else:
+          debug("Library", fmt"{library.name} has no dependencies listed in its nasher.cfg")
+      else:
+        debug("Library", fmt"{library.name} has no nasher.cfg file")
+  else:
+    debug("Library", "public `install` function called without valid URL as its path")
+    fatal("An unknown error has occurred ...")
+
+#Works
 proc initLibraries*() =
   ## Initializes the library system by creating the folder all public libraries will be stored
   ## in and creating an example installed.json.  Called during the nasher init process, but can
@@ -271,7 +356,9 @@ proc initLibraries*() =
   else:
     error("The library system could not be initialized")
 
-proc publishLibrary*(`type`: Publish) =
+#TODO, works to public a private library (local machine), but need a process similar to nimble to publish
+# a public library.  Need to learn more about interfacing with GitHub before I can finish this.
+proc publishLibrary*(`type`: Sector) =
   ## Publish a private or public library
   let 
     installed = getLibrariesDir() / installedLibraries
@@ -286,7 +373,7 @@ proc publishLibrary*(`type`: Publish) =
     
     if library.name.isInstalled:
       if askIf(fmt"A library named {library.name} is already installed.  Do you want to overwrite " &
-              "this installed library with this library?"):
+              "the installed library with this library?"):
         library.install(libraries)
         success(fmt"installed library {library.name} overwritten")
       else:
@@ -317,11 +404,11 @@ proc publishLibrary*(`type`: Publish) =
           else:
             library.install(libraries)
 
+#Works
 proc handleLibraries*(patterns: var seq[string], display = true) =
   ## Receives a sequence of patterns (includes and excludes from nasher.cfg) and modifies the library
   ## entries to reference local location (paths) of public and private libraries.  Non-library entries are
   ## passed without modification.
-  ## TODO checkout the branch and tag, if passed
   for pattern in patterns.mitems:
     if isLibrary(pattern):
       let
@@ -339,7 +426,9 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
           tokens[0] = getLibraryDir(reference.library).replace("\\", "/")
           if display: display("Library", fmt"using public library {reference.library}")
           
-          reference.checkout(getLibraryDir(reference.library))
+         # checkout the library at the branch and release referenced in the pattern,
+         # or, if not, if the library is a dependency of another library, see if it is
+         # marked with a specific release/branch.
           
           debug("Library", fmt"sourcing public library {reference.library} from {tokens[0]}")
 
@@ -355,7 +444,7 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
         # Maybe we can install it
         if reference.library.isAvailable:
           if askIf(fmt"The requested library {reference.library} is not installed, but is available. " &
-                    "Do you want to install it?", 
+                      "Do you want to install it?", 
                    default = Yes):
             reference.library.install
             handleLibraries(patterns, display)
@@ -365,13 +454,15 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
 
         else:
           warning(fmt"The requested library {reference.library} is not installed and is " &
-                    "not listed on the public library listing.  To use this library, " &
-                    "you must publish it either privately or publicly.")
+                     "not listed on the public library listing.  To use this library, " &
+                     "you must publish it either privately or publicly.")
           continue
 
-var something: Reference
-something =parseReference("@library-name:release-number[branch-name]/")
-something =parseReference("@library-name[branch-name]/")
-something =parseReference("@library-name/")
-something =parseReference("@library-name[branch-name]:release-number/")
-something =parseReference("@library-name:release-number/")
+#Testing stuff
+var libs2 = %*{"name":"myName","path":"https://","dependencies":["library3"],"dependentof":"none"}
+
+libs2.addElements("dependencies", @["library3","library2"])
+echo $libs2
+
+libs2.removeElements("dependencies", @["library2"])
+
