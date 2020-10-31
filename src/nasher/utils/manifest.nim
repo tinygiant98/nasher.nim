@@ -14,8 +14,8 @@ type
     vcs*: string
     description*: string
     license*: string
-    #dependencies*: JsonNode
-    #dependentof*: JsonNode
+    children*: JsonNode
+    parents*: JsonNode
 
 proc newManifest*(file: string): Manifest =
   Manifest(file: file, data: %* {})
@@ -116,14 +116,19 @@ proc add*(manifest: var Manifest, library: Library) =
                                     "path": library.path,
                                     "vcs": library.vcs,
                                     "description": library.description,
-                                    "license": library.license}
+                                    "license": library.license,
+                                    "children": library.children,
+                                    "parents": library.parents}
 
-proc add*(manifest: var Manifest, library, path, vcs, description, license: string) =
+proc add*(manifest: var Manifest, library, path, vcs, description, license: string,
+          children, parents: JsonNode) =
   manifest.data[library] = %* {"name": library,
                                "path": path,
                                "vcs": vcs, 
                                "description": description,
-                               "license": license}
+                               "license": license,
+                               "children": children,
+                               "parents": parents}
 
 proc delete*(manifest: var Manifest, file: string) =
   if manifest.data.hasKey(file):

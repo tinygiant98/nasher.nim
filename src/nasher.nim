@@ -94,7 +94,7 @@ when isMainModule:
       unpack(opts, pkg)
     of "library":
       if opts.get("library-install") == "true":
-        publishLibrary(pLocal)
+        publishLibrary(private)
     of "list":
       list(opts, pkg)
     of "convert", "compile", "pack", "install", "play", "test", "serve":
