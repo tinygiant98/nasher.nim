@@ -91,7 +91,7 @@ type
     branch*: string
 
 const
-  libraryFlag = '$'
+  libraryFlag = '$'  # change to ${}? see SM's example
   masterFolder = "__library-master"
   installedLibraries = "installed.json"
   publicLibraries = masterFolder / "packages.json"
@@ -128,7 +128,8 @@ proc newLibraryManifest(dir, file: string) =
 #Works
 proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
-  ## file cfg.  If not found, default is returned.
+  ## file cfg.  If not found, default is returned.  Handling multiple identical keys is not
+  ## supported.
   result = cfg.getSectionValue(section, key)
   
   if result == "":
@@ -137,7 +138,8 @@ proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
 #Works
 proc getRequiredField(cfg: Config, section, key: string): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
-  ## file cfg.  If not found, throws a fatal error.
+  ## file cfg.  If not found, throws a fatal error.  Handling multiple identical keys is not
+  ## supported.
   result = cfg.getSectionValue(section, key)
 
   if result == "":
@@ -146,9 +148,8 @@ proc getRequiredField(cfg: Config, section, key: string): string =
 
 #Works
 proc getLibrariesDir(): string =
-  ## Returns the base libraries directory (parent folder for all libraries)
-  ## 
-  ## This is where the default library location would be set
+  ## Returns the base libraries directory (parent folder for all public libraries)
+  ## This is where the default library location should be set
   getConfigDir() / "nasher" / "libraries"
 
 #Works
@@ -178,13 +179,13 @@ proc isLibrary(pattern: string): bool =
 
 #TODO
 proc isUrl(path: string): bool =
-  ## Returns whether parh is a URL
+  ## Returns whether path is a URL
   # TODO - this is super-hacky.  Find a better way
   # Might fail on something like file://...
   parseUri(path).hostname.len > 0
 
-#Works, but is this the right way?
-proc addElements(json: var JsonNode, key: string, values: seq[string], absolute = false) =
+#Works, but is this the right way? -- change to add?
+proc addElements(json: JsonNode, key: string, values: seq[string], absolute = false) =
   ## Adds unique values to json[key] array
   ## 
   ## This was originally meant to help create an array list of dependencies from a library
@@ -201,16 +202,16 @@ proc addElements(json: var JsonNode, key: string, values: seq[string], absolute 
       if %value notin json[key].getElems:
         json[key].add %value
 
-#Works
-proc removeElements(json: var JsonNode, key: string, values: seq[string], absolute = false) =
+#Works -- change to keepIf?
+proc removeElements(json: JsonNode, key: string, values: seq[string], absolute = false) =
   ## Removes elements from an array at json[key] if they are in values
   ## absolute = true --> remove all values (set to %[])
-  var elements = json[key].getElems
+  var elements = json[key].getElems()
 
   if absolute:
     json[key] = %[]
   else:
-    elements.keepIf(proc (x: JsonNode): bool = x.getStr notin values)
+    elements.keepIf(proc (x: JsonNode): bool = x.getStr() notin values)
     json[key]= %elements
 
 #Works
@@ -234,10 +235,27 @@ proc parseReference(pattern: string): Reference =
 
   if reference.release.len == 0:
     reference.release = "latest"
-    # TODO check for existence of specified release/tag
+    # TODO check for existence of specified release/tag, if not, then "" or #head
 
   result = reference
 
+#[proc filter(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {.inline.} =
+  assert j.kind == JArray
+  result = newJArray()
+
+  for i in 0 ..< j.len:
+    if pred(j[i]):
+      result.add(j[i])]#
+
+proc filter(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {.inline.} =
+  ## keeps nodes in j that satisfy pred
+  assert j.kind == JObject
+  result = newJObject()
+
+  for k, v in j:
+    if pred(j[k]):
+      result.add(k, v)
+      
 #Works
 proc parseLibrary(): Library =
   ## Populates a Library (type) with data from the nasher.cfg in the current directory.
@@ -263,33 +281,105 @@ proc parseLibrary(): Library =
 
   result = library
 
-# See below, this will be the "private" uninstall
-proc uninstall(library: Library, libraries: var Manifest, sector: Sector = private) =
-  echo "stuff"
+when false:
+  proc uninstall(name: string, installedManifest: var Manifest, fakestring: string) =
+    var
+      childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["parents"])
+      parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["children"])
 
-# Currently building support procedures to make this work
-# This will be the "public" uninstall and will call the private uninstall above
+    for k, v in parentLibraries:
+      if v["children"].len > 1:
+        #installedManifest.data[k].removeElements("children", @[name])
+        #uninstall(k, installedManifest)
+        echo "don't uninstall cuz it's got other dependencies"
+      elif v["children"].len == 1:
+        uninstall(k, installedManifest)
+
+    # need to update these, recursion potentially changes a lot of values in installedManifest.data
+    childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["parents"])
+    parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["children"])
+
+    # need to not ask this question for the originally requested library, get from opts?
+    let question = fmt"library {name} is no longer required, uninstall?"
+    if askIf(question):
+      for k, _ in childLibraries:
+        installedManifest.data[k].removeElements("parents", @[name])
+
+      for k, _ in parentLibraries:
+        installedManifest.data[k].removeElements("children", @[name])
+
+      if isUrl(installedManifest.data[name].fields["path"].getStr()):
+        echo fmt"{name} is a public library, removing repo"
+        #removeDir(getLibraryDir(name))
+
+      installedManifest.data.delete(name)
+
+    else:
+      installedManifest.data[name].removeElements("children", @[name])
+
+proc delete(installedManifest: var Manifest, name: string) = 
+  let path = installedManifest.data[name].fields["path"].getStr()
+  if path.isUrl:
+    display("Library", fmt"uninstalling public library {name}; associated repo deleted")
+    installedManifest.data.delete(name)
+    #removeDir(getLibraryDir(name))
+  else:
+    display("Library", fmt"uninstalling private library {name}; files remain available at {path}, " &
+      "but will no longer be accessible as a nasher library.")
+    installedManifest.data.delete(name)
+
+proc uninstall(name: string, installedManifest: var Manifest) =
+  var parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["children"])
+
+  ## experiment for uninstalling from the top
+  var childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["parents"])
+  if childLibraries.len > 0:
+    warning(fmt"library {name} has dependent libraries and cannot be uninstalled; the following " &
+      "libraries must be uninstalled first: " & childLibraries.getElems().join(", "))
+    let question = "Do you want to uninstall these libraries?"
+    if askIf(question):
+      for library in childLibraries:
+        uninstall(library.getStr(), installedManifest)
+  ## end experiment
+
+  if parentLibraries.len > 0:
+    for k, v in parentLibraries:
+      var elements = v["children"].getElems()
+      elements.keepIf(proc (x: JsonNode): bool = x != %name)
+      if elements.len > 0:
+        installedManifest.data[k].removeElements("children", @[name])
+        debug(fmt"reference to {name} removed as child element of {k}")
+      else:
+        uninstall(k, installedManifest)
+        
+    if installedManifest.data.hasKey(name):
+      installedManifest.delete(name)
+  else:
+    installedManifest.delete(name)
+
 proc uninstall(name: string) =
-  ## Removes a library from the installed libraries listing (installed.json) and, if the library
-  ## is public, deletes the associated files.  Dependent repos are also removed if they are not
-  ## dependents of any other libraries.
-  echo "stuff"
-
   var
     installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
+    #childLibraries = installedManifest.data[name].fields["children"]
 
-  let
-    targetDir = getLibraryDir(name)
-    library = installedManifest.data[name].to(Library)
+  #if childLibraries.len > 0:
+  #  warning(fmt"library {name} has dependent libraries and cannot be uninstalled; the following " &
+  #    "libraries must be uninstalled first: " & childLibraries.getElems().join(", "))
+  #  let question = "Do you want to uninstall these libraries?"
+  #  if askIf(question):
+  #    for library in childLibraries:
+  #      uninstall(library.getStr())
+        #uninstall(library.getStr(), installedManifest)
+        # this doesn't work right because of the installedManifest variable in recursion
+  #else:
+  uninstall(name, installedManifest)
 
-
-
-
+  #echo installedManifest.data.pretty
 
 #Works
 proc install(library: Library, manifest: var Manifest, sector: Sector = private) =
-  ## adds the library to the installed manifest, does not clone, usually directly called for private
-  ## library publishing/installation, indirectly called by overloaded install function below
+  ## Installs library into manifest as a sector library.  Called directly for private
+  ## library installs, called from overloaded `install` for public library installations.
 
   ## {libraries}/installed.json
   let file = getLibrariesDir() / installedLibraries
@@ -302,7 +392,7 @@ proc install(library: Library, manifest: var Manifest, sector: Sector = private)
   else:
     fatal(fmt"{library.name} could not be installed.  File a bug report at ...")  
 
-#Workd
+#Works
 proc install(name: string, parent = "") =
   ## For use when installing public libraries.  Creates the target folder for the repository,
   ## clones the repo into the target folder and inserts an entry into "installed.json".  If repo
@@ -386,6 +476,7 @@ proc install(name: string, parent = "") =
 
           # TODO split these out, don't need repeated code
           if children.len > 0:
+  
             # installedManifest was changed during the earlier install (since the last read), so read it again
             installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
             # add the children elements
@@ -455,7 +546,7 @@ proc publishLibrary*(`type`: Sector) =
         publishLibrary(private)
         return
       else:
-        fatal(getCurrentDir() & " is not a vcs repository and can't be published publicly.")
+        fatal(getCurrentDir() & " is not a vcs repository and cannot be published publicly.")
     elif library.vcs == "git":
       if library.path.isUrl:
         #see if we're going to use it or the git's
@@ -468,9 +559,9 @@ proc publishLibrary*(`type`: Sector) =
               library.install(libraries)
               success(fmt"installed library {library.name} overwritten")
             else:
-              fatal(fmt"User elected to end operation; library {library.name} not published.")
+              fatal(fmt"user elected to end operation; library {library.name} not published.")
           else:
-            library.install(libraries)
+            library.install(libraries)  # is this right?
 
 #Works
 proc handleLibraries*(patterns: var seq[string], display = true) =
@@ -485,7 +576,7 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
 
       if reference.library.isInstalled:
         var
-          path = installedManifest.data[reference.library]["path"].getStr
+          path = installedManifest.data[reference.library]["path"].getStr()
           tokens = pattern.split('/')
         
         # If the path is a URL, then it's a public library, so get the path to that repo and
@@ -507,6 +598,10 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
           if display: display("Library", fmt"using private library {reference.library}")
           debug("Libray", fmt"sourcing private library {reference.library} from {tokens[0]}")
 
+          # private libraries can also be git repositories, so if user is requesting a branch and/or
+          # release on a private library, see if it's a repo.  If not report the error and use the
+          # base library, if it exists.
+
         pattern = tokens.join("/")
       else:
         # Maybe we can install it
@@ -526,11 +621,5 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
                      "you must publish it either privately or publicly.")
           continue
 
-#Testing stuff
-var libs2 = %*{"name":"myName","path":"https://","dependencies":["library1"],"dependentof":"none"}
-
-libs2.addElements("dependencies", @["library3","library2"], absolute = false)
-echo $libs2
-
-#libs2.removeElements("dependencies", @["library2"])
-
+when isMainModule:
+  uninstall("sm-strings")
