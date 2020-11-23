@@ -170,6 +170,9 @@ proc unpack*(opts: Options, pkg: PackageRef) =
       info("Renaming", fmt"{file.extractFilename} to {fileLower.extractFilename}")
       file.moveFile(fileLower)
 
+  for rule in pkg.rules.mitems:
+    rule.dir.resolveSource(target.aliases)
+
   var
     manifest = parseManifest(target.name)
     deleted: seq[string] = @[]

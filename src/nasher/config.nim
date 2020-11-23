@@ -40,6 +40,32 @@ const
     --no-color     Disable color output (automatic if not a tty)
   """
 
+  helpAlias* = """
+  Usage:
+    nasher alias [options] <alias> [<path>]
+  Description:
+    Gets, sets, or unsets user-defined path aliases. Aliases allow you to bind
+    file or directory paths to variables which can then be referenced in package
+    sources. User-defined aliases can be local (package-specific) or global
+    (across all packages). Regardless, they override any aliases defined in the
+    nasher.cfg file.
+    Note: aliases cannot contain other aliases, but may contain environment
+    variables.
+    Global aliases are stored in %APPDATA%\nasher\aliases.cfg on Windows or in
+    $XDG_CONFIG/nasher/aliases.cfg on Linux and Mac. These values apply to all
+    packages.
+    Local (package-level) aliases are stored in .nasher/aliases.cfg in the package
+    root directory. Any aliases defined here take precedence over those in the
+    global aliases file. This file will be ignored by git.
+  Options:
+    --global       Apply to all packages (default)
+    --local        Apply to the current package only
+    --get          Get the value of <alias> (default when <path> is not passed)
+    --set          Set <alias> to <path> (default when <path> is passed)
+    --unset        Delete the alias/path pair for <alias>
+    --list         Lists all alias/path pairs in the alias file
+  """
+
 proc parseConfigCmd(opts: Options): string =
   result = opts.get("config")
   case result
@@ -61,9 +87,11 @@ proc parseConfigCmd(opts: Options): string =
     result = ""
 
 proc config*(opts: Options) =
-  let cmd = opts.parseConfigCmd
+  let
+    alias = opts["commands"] == "alias"
+    cmd = opts.parseConfigCmd
   if cmd == "":
-    help(helpConfig)
+    help(if alias: helpAlias else: helpConfig)
 
   let
     dir = opts.get("directory", getCurrentDir())
@@ -72,7 +100,9 @@ proc config*(opts: Options) =
   if level == "local" and not existsPackageFile(dir):
     fatal("This is not a nasher repository. Please run init")
 
-  let file = getConfigFile(if level == "local": dir else: "")
+  let
+    cfgDir = if level == "local": dir else: ""
+    file = getConfigFile(if level == "local": dir else: "")
   var cfg = newOptions(file)
 
   case cmd
@@ -85,10 +115,12 @@ proc config*(opts: Options) =
     if cfg.hasKey(key):
       echo cfg[key]
   of "set":
+    if not alias and opts["key"] in prohibitedOpts:
+      fatal("Prohibited key name " & opts["key"])
     cfg[opts["key"]] = opts["value"]
-    cfg.writeConfigFile(file)
+    cfg.writeConfigFile(file, alias)
   of "unset":
     cfg.del(opts["key"])
-    cfg.writeConfigFile(file)
+    cfg.writeConfigFile(file, alias)
   else:
     assert false

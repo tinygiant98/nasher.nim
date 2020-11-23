@@ -3,26 +3,6 @@ import cli
 
 from shared import withDir
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-proc gitExecCmd(cmd: string, default = ""): string {.discardable.} =
-=======
-var lastError: string
-
-proc gitExecCmd(cmd: string, default = ""): string =
->>>>>>> bd8122c... stuff
-  ## Runs ``cmd``, returning its output on success or ``default`` on error.
-  let (output, errCode) = execCmdEx(cmd)
-  if errCode != 0:
-    lastError = output.strip
-    default
-  else:
-    # Remove trailing newline
-    lastError = ""
-    output.strip
-
->>>>>>> 89d5c54... more work!
 proc gitUser*: string =
   ## Returns the configured git username or "" on failure.
   let gitResult = execCmdEx("git config --get user.name")
@@ -35,36 +15,30 @@ proc gitEmail*: string =
   ## Returns the configured git email or "" on failure.
   let gitResult = execCmdEx("git config --get user.email")
 
-<<<<<<< HEAD
   if gitResult.exitCode == 0:
     gitResult.output.strip
   else: ""
-=======
-proc gitPull*(repo = getCurrentDir()) =
+
+proc gitPull*(repo = getCurrentDir(), throw = false) =
   ## pull the repo
   withDir(repo):
-    discard gitExecCmd("git pull")
+    let gitResult = execCmdEx("git pull")
 
-proc gitClone*(dir = getCurrentDir(), repo, target: string) =
+    if gitResult.exitCode != 0 and throw:
+      error(gitResult.output)
+
+proc gitClone*(dir = getCurrentDir(), repo, target: string, throw = false) =
   ## clone repo into target under dir
   withDir(dir):
-<<<<<<< HEAD
-    gitExecCmd("git rev-parse --is-inside-work-tree") != "true"
->>>>>>> 89d5c54... more work!
+    let gitResult = execCmdEx("git clone " & repo & " " & target)
+
+    if gitResult.exitCode != 0 and throw:
+      error(gitResult.output)
 
 proc gitRemote*(repo = getCurrentDir()): string =
   withDir(repo):
     let url = execCmdEx("git ls-remote --get-url")
     result = url.output
-=======
-    discard gitExecCmd("git clone " & repo & " " & target)
-
-proc gitRemote*(repo = getCurrentDir()): string =
-  ## Returns the remote for the git project in ``dir``. Supports ssh formatted
-  ## remotes.
-  withDir(repo):
-    result = gitExecCmd("git ls-remote --get-url")
->>>>>>> bd8122c... stuff
 
     if url.exitCode == 0:
       if result.endsWith(".git"):
@@ -82,12 +56,11 @@ proc gitInit*(repo = getCurrentDir()): bool =
     execCmdEx("git init").exitCode == 0
 
 proc empty(repo: string): bool =
-<<<<<<< HEAD
   ## Check if repo has any commits
   withDir(repo):
     execCmdEx("git branch --list").output.strip == ""
 
-proc exists(repo: string): bool =
+proc exists*(repo: string): bool =
   ## Check for repo existence
   withDir(repo):
     execCmdEx("git rev-parse --is-inside-work-tree").output.strip == "true"
@@ -137,44 +110,6 @@ proc checkout(branch: string, repo: string, create = false, throw = false): bool
 proc create(repo: string, branch: string):bool =
   ## Wrapper function for checkout; creates a new git branch in repo
   branch.checkout(repo, create = true)
-=======
-  ## Determines whether a specified repo has had any commits
-  withDir(repo):
-    gitExecCmd("git branch --list", "none").len == 0
-
-proc exist*(tag: string): bool =
-  ## Determines whether a specified tag/release exists
-  echo tag
-
-proc exists*(repo: string): bool =
-  ## Determine whether a specified repo exists
-  withDir(repo):
-    gitExecCmd("git rev-parse --is-inside-work-tree") == "true"
-
-proc exists*(branch: string, repo: string): bool =
-  ## Determines whether a specified branch exits
-  withDir(repo):
-    gitExecCmd("git show-ref --verify refs/heads/" & branch, "error") != "error"
-
-proc checkout(branch: string, repo: string, create = false): bool = 
-  # Checkout desired branch, if it exists.  If not, prompts for creation or
-  # uses of current branch.  If can't checkout because of an error, do something else?
-  if create:
-    withDir(repo):
-      gitExecCmd("git checkout -b " & branch, "error") != "error"
-  else:
-    withDir(repo):
-      gitExecCmd("git checkout " & branch, "error") != "error"
-
-proc branch(repo: string, default = ""): string =
-  ## Returns the name of the curretly checked-out branch
-  withDir(repo):
-    gitExecCmd("git rev-parse --abbrev-ref HEAD", default)
-
-proc create(repo: string, branch: string):bool =
-  ## Wrapper function for checkout; creates a new git branch in repo
-  branch.checkout(repo, true)
->>>>>>> bd8122c... stuff
 
 proc gitSetBranch*(repo = getCurrentDir(), branch: string): string =
   ## Called if the branch option was specified in configuration or command line
@@ -183,18 +118,10 @@ proc gitSetBranch*(repo = getCurrentDir(), branch: string): string =
       if repo.branch == branch:
         result = branch
       else:
-<<<<<<< HEAD
         if branch.checkout(repo, throw = true):
           result = repo.branch
         else:
           fatal(fmt"{branch} could not be checked out. Resolve all git repo errors before continuing.")
-=======
-        if branch.checkout(repo):
-          result = repo.branch
-        else:
-          error(lastError)
-          fatal(fmt"You must resolve the git repo error before you can continue on branch {branch}")
->>>>>>> bd8122c... stuff
     else:
       if repo.empty:
         let question = "Nasher cannot determine the status of this repo because there have not been any commits. " &
@@ -212,11 +139,7 @@ proc gitSetBranch*(repo = getCurrentDir(), branch: string): string =
       else:
         if repo.create(branch): result = branch
   else:
-<<<<<<< HEAD
     result = "this folder is not a vcs repository"
-=======
-    result = "this folder is not a git repository"
->>>>>>> bd8122c... stuff
 
 proc gitIgnore*(repo = getCurrentDir(), force = false) =
   ## Creates a .gitignore file in ``dir`` if one does not already exist or if
@@ -234,8 +157,4 @@ proc gitIgnore*(repo = getCurrentDir(), force = false) =
     .nasher/
     """
   if force or not fileExists(repo / file):
-<<<<<<< HEAD
     writeFile(repo / file, text.unindent(4))
-=======
-    writeFile(repo / file, text.unindent(4))
->>>>>>> bd8122c... stuff

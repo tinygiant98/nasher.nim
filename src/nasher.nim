@@ -1,10 +1,6 @@
 import os, strformat
 import nasher/[init, list, config, unpack, convert, compile, pack, install, launch]
-<<<<<<< HEAD
-import nasher/utils/[cli, git, options, shared]
-=======
 import nasher/utils/[cli, libraries, options, shared]
->>>>>>> 89d5c54... more work!
 
 const
   NimblePkgVersion {.strdefine.} = "devel"
@@ -18,6 +14,7 @@ const
     nasher (convert|compile|pack|install|play|test|serve) [options] [<target>...]
     nasher unpack [options] [<target> [<file>]]
     nasher config [options] <key> [<value>]
+    nasher alias [options] <alias> [<path>]
 
   Commands:
     init           Initializes a nasher repository
@@ -31,6 +28,7 @@ const
     test           As play, but automatically selects the first localvault PC
     unpack         Unpacks a target's installed file into the source tree
     config         Gets, sets, or unsets user-defined configuration options
+    alias          Gets, sets, or unsets user-defined source path aliases
 
   Global Options:
     -h, --help     Display help for nasher or one of its commands
@@ -67,6 +65,7 @@ when isMainModule:
     if help:
       case cmd
       of "config": help(helpConfig)
+      of "alias": help(helpAlias)
       of "init": help(helpInit)
       of "list": help(helpList)
       of "convert": help(helpConvert)
@@ -77,15 +76,15 @@ when isMainModule:
       of "play", "test", "serve": help(helpLaunch)
       else: help(helpAll)
 
-    if cmd notin ["init", "config", "list"]:
+    if cmd notin ["init", "config", "alias", "list"]:
       opts.verifyBinaries
 
-    if cmd notin ["init", "config"] and
+    if cmd notin ["init", "config", "alias"] and
        not loadPackageFile(pkg, getPackageFile()):
          fatal("This is not a nasher project. Please run nasher init.")
 
     case cmd
-    of "config":
+    of "config", "alias":
       config(opts)
     of "init":
       if init(opts, pkg):

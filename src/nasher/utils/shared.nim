@@ -1,4 +1,4 @@
-import os, times, strtabs
+import os, times, strtabs, tables
 
 from sequtils import toSeq
 from strutils import unindent, strip
