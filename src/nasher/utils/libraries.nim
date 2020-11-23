@@ -239,14 +239,6 @@ proc parseReference(pattern: string): Reference =
 
   result = reference
 
-#[proc filter(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {.inline.} =
-  assert j.kind == JArray
-  result = newJArray()
-
-  for i in 0 ..< j.len:
-    if pred(j[i]):
-      result.add(j[i])]#
-
 proc filter(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {.inline.} =
   ## keeps nodes in j that satisfy pred
   assert j.kind == JObject
@@ -274,48 +266,44 @@ proc parseLibrary(): Library =
   library.name = cfg.getRequiredField("Package", "name")
   library.path = cfg.getOptionalField("Package", "url")
   library.vcs = 
-    if library.name.getLibraryDir.exists: "git"
+    if library.name.getLibraryDir().exists: "git"
     else: "none"
   library.description = cfg.getRequiredField("Package", "description")
   library.license = cfg.getOptionalField("Package", "license")
 
   result = library
 
-when false:
-  proc uninstall(name: string, installedManifest: var Manifest, fakestring: string) =
-    var
-      childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["parents"])
-      parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["children"])
+proc list(sector: Sector = private) =
+  ## lists the installed or available libraries
+  # we're stealing the Sector type, so in this procedure, "private" will mean locally
+  # installed libraries and "public" will mean all available libraries
+  let 
+    file =
+      if sector == private: installedLibraries
+      else: publicLibraries
+    manifest = parseLibraryManifest(getLibrariesDir() / file)  # type Manifest
+ 
+  var
+    logLevel = getLogLevel()
+    fields =
+      case logLevel
+      of DebugPriority: @["name", "path", "method", "description", "license", "children", "parents"]
+      of HighPriority: @["name"]
+      of MediumPriority: @["name", "path", "description"]
+      of LowPriority: @["name", "path", "method", "description", "license"]
 
-    for k, v in parentLibraries:
-      if v["children"].len > 1:
-        #installedManifest.data[k].removeElements("children", @[name])
-        #uninstall(k, installedManifest)
-        echo "don't uninstall cuz it's got other dependencies"
-      elif v["children"].len == 1:
-        uninstall(k, installedManifest)
+  for k, v in manifest.data:
+    for kk, vv in v:
+      if vv.getStr().startsWith("__"):
+        break
+      elif kk in fields:
+        case vv.kind:
+        of JArray:
+          display(fmt"{kk}:", vv.getElems().join(", "))
+        else:
+          display(fmt"{kk}:", vv.getStr())
 
-    # need to update these, recursion potentially changes a lot of values in installedManifest.data
-    childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["parents"])
-    parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["children"])
-
-    # need to not ask this question for the originally requested library, get from opts?
-    let question = fmt"library {name} is no longer required, uninstall?"
-    if askIf(question):
-      for k, _ in childLibraries:
-        installedManifest.data[k].removeElements("parents", @[name])
-
-      for k, _ in parentLibraries:
-        installedManifest.data[k].removeElements("children", @[name])
-
-      if isUrl(installedManifest.data[name].fields["path"].getStr()):
-        echo fmt"{name} is a public library, removing repo"
-        #removeDir(getLibraryDir(name))
-
-      installedManifest.data.delete(name)
-
-    else:
-      installedManifest.data[name].removeElements("children", @[name])
+    if fields.len > 1: stdout.write("\n")
 
 proc delete(installedManifest: var Manifest, name: string) = 
   let path = installedManifest.data[name].fields["path"].getStr()
@@ -340,6 +328,8 @@ proc uninstall(name: string, installedManifest: var Manifest) =
     if askIf(question):
       for library in childLibraries:
         uninstall(library.getStr(), installedManifest)
+
+      return #?
   ## end experiment
 
   if parentLibraries.len > 0:
@@ -358,23 +348,12 @@ proc uninstall(name: string, installedManifest: var Manifest) =
     installedManifest.delete(name)
 
 proc uninstall(name: string) =
-  var
-    installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
-    #childLibraries = installedManifest.data[name].fields["children"]
+  var 
+    file = getLibrariesDir() / installedLibraries
+    installedManifest = parseLibraryManifest(file)
 
-  #if childLibraries.len > 0:
-  #  warning(fmt"library {name} has dependent libraries and cannot be uninstalled; the following " &
-  #    "libraries must be uninstalled first: " & childLibraries.getElems().join(", "))
-  #  let question = "Do you want to uninstall these libraries?"
-  #  if askIf(question):
-  #    for library in childLibraries:
-  #      uninstall(library.getStr())
-        #uninstall(library.getStr(), installedManifest)
-        # this doesn't work right because of the installedManifest variable in recursion
-  #else:
   uninstall(name, installedManifest)
-
-  #echo installedManifest.data.pretty
+  #installedManifest.write(target = file)
 
 #Works
 proc install(library: Library, manifest: var Manifest, sector: Sector = private) =
@@ -515,9 +494,9 @@ proc initLibraries*() =
   else:
     error("The library system could not be initialized")
 
-#TODO, works to public a private library (local machine), but need a process similar to nimble to publish
+#TODO, works to "publish" a private library (local machine), but need a process similar to nimble to publish
 # a public library.  Need to learn more about interfacing with GitHub before I can finish this.
-proc publishLibrary*(`type`: Sector) =
+proc publishLibrary*(sector: Sector) =
   ## Publish a private or public library
   let 
     installed = getLibrariesDir() / installedLibraries
@@ -526,7 +505,7 @@ proc publishLibrary*(`type`: Sector) =
     library = parseLibrary()
     libraries = parseLibraryManifest(installed)
 
-  case `type`:
+  case sector:
   of private:
     library.path = getCurrentDir().replace("\\", "/")
     
@@ -621,5 +600,7 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
                      "you must publish it either privately or publicly.")
           continue
 
+# test stuff here, since I haven't figure out the actual nim test procedures yet
 when isMainModule:
-  uninstall("sm-strings")
+  list(private)
+  list(public)

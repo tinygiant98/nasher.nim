@@ -33,6 +33,9 @@ const
 
 var cli = CLI(showColor: stdout.isatty, logLevel: MediumPriority, forceAnswer: None)
 
+proc getLogLevel*: Priority =
+  cli.logLevel
+
 proc setLogLevel*(level: Priority) =
   cli.logLevel = level
 
