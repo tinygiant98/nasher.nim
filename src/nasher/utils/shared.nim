@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import os, times, strtabs, tables
-=======
 import os, times, strtabs
 
->>>>>>> 89d5c54... more work!
 from sequtils import toSeq
 from strutils import unindent, strip
 from unicode import toLower

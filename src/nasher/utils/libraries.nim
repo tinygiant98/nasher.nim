@@ -5,17 +5,19 @@ import cli, git, manifest, shared
 ## 
 ## This system allows for publication of two types of libraries: private and public.  Private libraries
 ## are those that only exist on the local system.  Public libraries exist as code repositories.  The types
-## of files in these repositories is not limited to nwn gff files.
+## of files in these repositories is not limited to nwn gff files, so the user is expected to have some
+## working knowledge of the contents of the included library, especially its directory structure.
 ## 
 ## Referencing a library in nasher.cfg:
-## This library implementation uses nasher's normal include/exclude statements to determine which library
-## files to include.  To reference a library, use the libraryFlag "@" as the first character.  You can also
-## reference a releast with a ":" and a specific branch in square brackets.  So the simplest library call
-## would be
-##    include = "@library-name/**/*.{nss,json}"
+## Since I'll be adding SM's aliasing capability, we want to use that functionality to also reference libraries.
+## Libraries do not require an alias to be defined, but will use the same notation.  Libraries will use nasher's
+## normal include/exclude statements to determine which library files to include.
+## 
+## To reference a library, use the alias functionality:
+##    include = "${library-name}/**/*.{nss,json}"
 ## 
 ## A more complicated call would be
-##    include = "@library-name:release[branch]/**/*.{nss,json}"
+##    include = "${library-name:release[branch]}/**/*.{nss,json}"
 ## 
 ## Other than these flags, all other file inclusion and exclusion rules (glob) apply, so the user should have some
 ## knowledge of the structure of the library they are including.  If the tag and/or branch referenced in the
@@ -273,7 +275,7 @@ proc parseLibrary(): Library =
 
   result = library
 
-proc list(sector: Sector = private) =
+proc list*(sector: Sector = private) =
   ## lists the installed or available libraries
   # we're stealing the Sector type, so in this procedure, "private" will mean locally
   # installed libraries and "public" will mean all available libraries
@@ -347,7 +349,7 @@ proc uninstall(name: string, installedManifest: var Manifest) =
   else:
     installedManifest.delete(name)
 
-proc uninstall(name: string) =
+proc uninstall*(name: string) =
   var 
     file = getLibrariesDir() / installedLibraries
     installedManifest = parseLibraryManifest(file)

@@ -14,8 +14,12 @@ type
     authors*, includes*, excludes*, filters*, flags*, updated*: seq[string]
 =======
     name*, description*, version*, url*, modName*, modMinGameVersion*: string
+<<<<<<< HEAD
     authors*, includes*, excludes*, filters*, flags*, updated*, libraries*: seq[string]
 >>>>>>> f85d2bd... working on library functions
+=======
+    authors*, includes*, excludes*, filters*, flags*, updated*: seq[string]
+>>>>>>> bee96fb... implementation documentaiton update
     targets*: seq[Target]
     rules*: seq[Rule]
 
@@ -27,8 +31,12 @@ type
     includes*, excludes*, filters*, flags*: seq[string]
 =======
     name*, file*, description*, modName*, modMinGameVersion*: string
+<<<<<<< HEAD
     includes*, excludes*, filters*, flags*, libraries*: seq[string]
 >>>>>>> f85d2bd... working on library functions
+=======
+    includes*, excludes*, filters*, flags*: seq[string]
+>>>>>>> bee96fb... implementation documentaiton update
     rules*: seq[Rule]
 
   Rule* = tuple[pattern, dir: string]
@@ -348,7 +356,7 @@ proc addTarget(pkg: PackageRef, target: var Target) =
 
     if target.includes.len == 0:
       target.includes = pkg.includes
-    target.includes.handleLibraries
+    target.includes.handleLibraries()
 
     if target.excludes.len == 0:
       target.excludes = pkg.excludes
