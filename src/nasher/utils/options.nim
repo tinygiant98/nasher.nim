@@ -161,7 +161,7 @@ proc writeConfigFile*(opts: Options, file: string, alias = false) =
         warning("Skipping prohibited key name " & key.escape)
       else:
         let keyName = if key.validIdentifier: key else: key.escape
-        s.writeLine(key & " = " & opts[key].escape)
+        s.writeLine(keyName & " = " & opts[key].escape)
     s.close
   except:
     fatal(getCurrentExceptionMsg())
@@ -422,8 +422,9 @@ proc parsePackageFile(pkg: PackageRef, file: string) =
         of "modMinGameVersion": pkg.modMinGameVersion = e.value
         of "branch": pkg.branch = e.value
         else:
-          pkg.rules.add((e.key, e.value))
-          #pkg.aliases[e.key] = e.value.expandPath(true)
+          #pkg.rules.add((e.key, e.value))
+          echo fmt"(package) alias {e.key} --> {e.value}"
+          pkg.aliases[e.key] = e.value.expandPath(true)
       of "target":
         case key
         of "name": target.name = e.value.toLower
@@ -437,9 +438,16 @@ proc parsePackageFile(pkg: PackageRef, file: string) =
         of "modMinGameVersion": target.modMinGameVersion = e.value
         of "branch": target.branch = e.value
         else:
-          target.rules.add((e.key, e.value))
-          #target.aliases[e.key] = e.value.expandPath(true)
+          if e.key.isEscaped():
+            echo fmt"(target) rule {e.key} --> {e.value}"
+            echo "(target) rule " & $e
+            target.rules.add((e.key, e.value))
+          else:
+            echo fmt"(target) alias {e.key} --> {e.value}"
+            echo "(target) alias " & $e
+            target.aliases[e.key] = e.value.expandPath(true)
       of "rules":
+        echo fmt"(package) rule {e.key} --> {e.value}"
         pkg.rules.add((e.key, e.value))
       else:
         discard

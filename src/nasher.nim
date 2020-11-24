@@ -1,6 +1,6 @@
-import os, strformat
+import os
 import nasher/[init, list, config, unpack, convert, compile, pack, install, launch]
-import nasher/utils/[cli, libraries, options, shared]
+import nasher/utils/[cli, git, libraries, options, shared]
 
 const
   NimblePkgVersion {.strdefine.} = "devel"

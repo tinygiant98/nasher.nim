@@ -93,7 +93,7 @@ type
     branch*: string
 
 const
-  libraryFlag = '$'  # change to ${}? see SM's example
+  libraryFlag = '@'  # change to ${}? see SM's example  incorporate into aliases
   masterFolder = "__library-master"
   installedLibraries = "installed.json"
   publicLibraries = masterFolder / "packages.json"
@@ -107,7 +107,7 @@ proc parseLibraryManifest(file: string): Manifest =
 
 #Works
 proc newLibraryManifest(dir, file: string) =
-  ## Creates a new library-specific manifest for "installed.json" and inserts and example entry
+  ## Creates a new library-specific manifest for "installed.json" and inserts an example entry
   let target = dir / file
 
   if fileExists(target):
@@ -127,7 +127,6 @@ proc newLibraryManifest(dir, file: string) =
                % @[])
   manifest.write(target)
 
-#Works
 proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
   ## file cfg.  If not found, default is returned.  Handling multiple identical keys is not
@@ -137,18 +136,23 @@ proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
   if result == "":
     result = default
 
-#Works
-proc getRequiredField(cfg: Config, section, key: string): string =
+proc getRequiredField(cfg: var Config, section, key: string, prompt = true): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
   ## file cfg.  If not found, throws a fatal error.  Handling multiple identical keys is not
-  ## supported.
+  ## supported
   result = cfg.getSectionValue(section, key)
 
   if result == "":
-    fatal(fmt"You must include a value for the library's {key}.  Please insert a value " &
-          fmt"for {key} in the {section} section of nasher.cfg")
+    if prompt:
+      let question = fmt"A value must be included for this library's {key}.  Please enter a value " &
+        fmt"or add a value for {key} in the {section} section of nasher.cfg."
+      
+      result = ask(question, allowBlank = false)
+      cfg.setSectionKey(section, key, result)
+    else:
+        fatal(fmt"You must include a value for the library's {key}.  Please insert a value " &
+              fmt"for {key} in the {section} section of nasher.cfg")
 
-#Works
 proc getLibrariesDir(): string =
   ## Returns the base libraries directory (parent folder for all public libraries)
   ## This is where the default library location should be set
@@ -258,6 +262,7 @@ proc parseLibrary(): Library =
     library: Library
     cfg: Config
   
+  # TODO modify this to use getPackageRoot without all the errors of including options.nim (circular)
   let file = getCurrentDir() / "nasher.cfg"
    
   if fileExists(file): 
@@ -268,21 +273,26 @@ proc parseLibrary(): Library =
   library.name = cfg.getRequiredField("Package", "name")
   library.path = cfg.getOptionalField("Package", "url")
   library.vcs = 
+    # TODO add a gitRepoType function (really, add hg functionality)
     if library.name.getLibraryDir().exists: "git"
     else: "none"
   library.description = cfg.getRequiredField("Package", "description")
   library.license = cfg.getOptionalField("Package", "license")
 
+  # if we changed anything in the config, write it?  This writes anyway, send file to field proc?
+  cfg.writeConfig(file)
   result = library
 
 proc list*(sector: Sector = private) =
   ## lists the installed or available libraries
-  # we're stealing the Sector type, so in this procedure, "private" will mean locally
-  # installed libraries and "public" will mean all available libraries
+  # we're co-opting the Sector type, so in this procedure, "private" will mean locally
+  # installed libraries found in installed.json and "public" will mean all available libraries
+  # found in packages.json
   let 
     file =
-      if sector == private: installedLibraries
-      else: publicLibraries
+      case sector
+      of private: installedLibraries
+      of public: publicLibraries
     manifest = parseLibraryManifest(getLibrariesDir() / file)  # type Manifest
  
   var
@@ -417,7 +427,7 @@ proc install(name: string, parent = "") =
       var
         cfg: Config
         reference: Reference
-        instLibrary: Library
+        #instLibrary: Library
         children: seq[string]
 
       if fileExists(getCurrentDir() / "nasher.cfg"):
@@ -604,5 +614,8 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
 
 # test stuff here, since I haven't figure out the actual nim test procedures yet
 when isMainModule:
-  list(private)
-  list(public)
+  let escaped = "\"escaped-string\""
+  let unescaped = "unescaped-string"
+
+  echo escaped.isEscaped()
+  echo unescaped.isEscaped()

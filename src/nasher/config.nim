@@ -88,7 +88,7 @@ proc parseConfigCmd(opts: Options): string =
 
 proc config*(opts: Options) =
   let
-    alias = opts["commands"] == "alias"
+    alias = opts["command"] == "alias"
     cmd = opts.parseConfigCmd
   if cmd == "":
     help(if alias: helpAlias else: helpConfig)
@@ -102,7 +102,7 @@ proc config*(opts: Options) =
 
   let
     cfgDir = if level == "local": dir else: ""
-    file = getConfigFile(if level == "local": dir else: "")
+    file = getConfigFile(cfgDir, if alias: "aliases.cfg" else: "user.cfg")
   var cfg = newOptions(file)
 
   case cmd

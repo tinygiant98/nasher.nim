@@ -65,7 +65,7 @@ proc exists*(repo: string): bool =
   withDir(repo):
     execCmdEx("git rev-parse --is-inside-work-tree").output.strip == "true"
 
-proc exists(branch: string, repo: string): bool =
+proc exists*(branch: string, repo: string): bool =
   ## Check for branch existence
   withDir(repo):
     execCmdEx(fmt"git show-ref --verify refs/heads/{branch}").exitCode == 0

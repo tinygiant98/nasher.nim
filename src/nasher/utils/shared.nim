@@ -107,3 +107,5 @@ proc outFiles*(srcFiles: seq[string]): FileMap =
     if result.hasKeyOrPut(outFile, @[srcFile]):
       result[outFile].add(srcFile)
 
+proc isEscaped*(s: string): bool =
+  s[0] == '\"' and s[s.high] == '\"'
