@@ -239,6 +239,13 @@ proc parseCmdLine(opts: Options) =
               opts["files"] = opts["files"] & ";" & val
           else:
             opts[key]= val
+        of "list":
+          case key
+          of "l", "lib", "library", "libraries":
+            opts.putKeyOrHelp("list", "libraries")
+            opts["library"] = val
+          of "public", "private": 
+            opts.putKeyOrHelp("level", key)
         of "library":
           case key
           of "i", "install":
@@ -280,7 +287,7 @@ proc getOptions*: Options =
   result = newStringTable(modeStyleInsensitive)
   result.parseConfigFile(getConfigFile())
   result.parseConfigFile(getConfigFile(getCurrentDir()))
-  result.parseCmdLine
+  result.parseCmdLine()
 
   # Some options imply others
   if result.getOrPut("clean", false):
@@ -422,8 +429,6 @@ proc parsePackageFile(pkg: PackageRef, file: string) =
         of "modMinGameVersion": pkg.modMinGameVersion = e.value
         of "branch": pkg.branch = e.value
         else:
-          #pkg.rules.add((e.key, e.value))
-          echo fmt"(package) alias {e.key} --> {e.value}"
           pkg.aliases[e.key] = e.value.expandPath(true)
       of "target":
         case key
@@ -438,16 +443,12 @@ proc parsePackageFile(pkg: PackageRef, file: string) =
         of "modMinGameVersion": target.modMinGameVersion = e.value
         of "branch": target.branch = e.value
         else:
+          # TODO this doesn't work: how to distinguish between aliases and rules?
           if e.key.isEscaped():
-            echo fmt"(target) rule {e.key} --> {e.value}"
-            echo "(target) rule " & $e
             target.rules.add((e.key, e.value))
           else:
-            echo fmt"(target) alias {e.key} --> {e.value}"
-            echo "(target) alias " & $e
             target.aliases[e.key] = e.value.expandPath(true)
       of "rules":
-        echo fmt"(package) rule {e.key} --> {e.value}"
         pkg.rules.add((e.key, e.value))
       else:
         discard
