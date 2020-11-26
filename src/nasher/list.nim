@@ -27,20 +27,24 @@ const
     --no-color     Disable color output (automatic if not a tty)
   """
 
-proc list*(opts: Options, sector: Sector = private) =
+proc listLibraries(opts: Options, sector: Sector = private) =
   ## lists the installed or available libraries
   let
     file =
       case sector
       of private: installedLibraries
       of public: publicLibraries
-    manifest = parseLibraryManifest(getLibrariesDir() / file)  # type Manifest
+    manifest = parseLibraryManifest(getLibrariesDir() / file)
     library = opts.get("library")
+    plurality = if library.len == 0: "ies" else: "y"
   
   var hasRun = false
   
-  if library.len == 0:
-    display("Listing", fmt"{sector} libraries")
+  display("Listing", fmt"{sector} librar{plurality}")
+  if sector == public:
+    warning("public libraries must be installed before use")
+  else:
+    display("Info:", "private libraries are installed and ready to use", displayType = Success)
 
   for k, v in manifest.data:
     if v["name"].getStr().startsWith("__"):
@@ -50,7 +54,7 @@ proc list*(opts: Options, sector: Sector = private) =
       continue
 
     if hasRun: stdout.write("\n")
-    display("Name:", v["name"].getStr(), priority = HighPriority)
+    display("Library:", v["name"].getStr(), priority = HighPriority)
     display("Path:", v["path"].getStr())
     display("VCS:", v["method"].getStr(), priority = LowPriority)
     display("Description:", v["description"].getStr())
@@ -60,31 +64,47 @@ proc list*(opts: Options, sector: Sector = private) =
     if getLogLevel() < HighPriority:
       hasRun = true
     
+proc listTargets(opts: Options, pkg: PackageRef) =
+  let listTarget = opts.get("target")
+
+  # convenience check, in case user is looking for a library
+  if listTarget.len > 0 and listTarget notin getTargetNames(pkg):
+    var sector: Sector
+    echo fmt"{sector=}"
+    
+    if isInstalled(listTarget):
+      sector = private
+    elif isAvailable(listTarget):
+      sector = public
+
+    opts["library"] = listTarget
+    listLibraries(opts, sector)
+    return
+
+  if pkg.targets.len > 0:
+    var hasRun = false
+    for target in pkg.targets:
+      if listTarget.len > 0 and target.name != listTarget:
+        continue
+      
+      if hasRun:
+        stdout.write("\n")
+      display("Target:", target.name, priority = HighPriority)
+      display("Description:", target.description)
+      display("File:", target.file)
+      display("Includes:", target.includes.join("\n"))
+      display("Excludes:", target.excludes.join("\n"))
+      display("Filters:", target.filters.join("\n"))
+
+      for pattern, dir in target.rules.items:
+        display("Rule:", pattern & " -> " & dir)
+      hasRun = true
+  else:
+    fatal("No targets found. Please check your nasher.cfg.")
+
 proc list*(opts: Options, pkg: PackageRef) =
-  # check to see if we're listing libraries or a specific library
   case opts.get("list")
   of "libraries":
-    list(opts, parseEnum(opts.get("level"), private))
+    listLibraries(opts, parseEnum(opts.get("level"), private))
   else:
-    let listTarget = opts.get("target")
-
-    if pkg.targets.len > 0:
-      var hasRun = false
-      for target in pkg.targets:
-        if listTarget.len > 0 and target.name != listTarget:
-          continue
-        
-        if hasRun:
-          stdout.write("\n")
-        display("Target:", target.name, priority = HighPriority)
-        display("Description:", target.description)
-        display("File:", target.file)
-        display("Includes:", target.includes.join("\n"))
-        display("Excludes:", target.excludes.join("\n"))
-        display("Filters:", target.filters.join("\n"))
-
-        for pattern, dir in target.rules.items:
-          display("Rule:", pattern & " -> " & dir)
-        hasRun = true
-    else:
-      fatal("No targets found. Please check your nasher.cfg.")
+    listTargets(opts, pkg)

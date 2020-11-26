@@ -582,6 +582,13 @@ proc getTargets*(pkg: PackageRef, names = ""): seq[Target] =
         return pkg.targets
       result.add(pkg.getTarget(name))
 
+proc getTargetNames*(pkg: PackageRef): seq[string] =
+  if pkg.targets.len == 0:
+    return
+
+  for target in pkg.targets:
+    result.add(target.name)
+
 proc isSrcFile*(pkg: PackageRef, file: string): bool =
   ## Returns whether ``file`` is a source file of ``pkg``.
   file.matchesAny(pkg.includes) and not file.matchesAny(pkg.excludes)

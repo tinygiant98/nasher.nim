@@ -34,15 +34,24 @@ import cli, git, manifest, shared
 ## Install ======================================
 ## 
 ## The library install command is an extenstion of nasher's install command and is fully-backward compatible.
+## The command will attempt to install a defined target, however, if the target is not found, available
+## libraries will be checked to see if the user is attempting to install a library instead of a target.
 ## 
+##  `nasher install [<library|target>,...] [options]`
+## 
+## 
+## 
+## 
+## 
+## Uninstall ====================================
+##  uninstall a library or the entire library system?
+## Publish ======================================
+##  public/private
+## Unpublish ====================================
+##  public (private just uses uninstall)
+## Update =======================================
+##  updates all the cloned library repos (git pull)
 
-## Nasher Libraries Implementation
-## 
-## This system allows for publication of two types of libraries: private and public.  Private libraries
-## are those that only exist on the local system.  Public libraries exist as code repositories.  The types
-## of files in these repositories is not limited to nwn gff files, so the user is expected to have some
-## working knowledge of the contents of the included library, especially its directory structure.
-## 
 ## Referencing a library in nasher.cfg:
 ## Since I'll be adding SM's aliasing capability, we want to use that functionality to also reference libraries.
 ## Libraries do not require an alias to be defined, but will use the same notation.  Libraries will use nasher's
@@ -61,14 +70,6 @@ import cli, git, manifest, shared
 ## valid options for the :release entry.  :latest will pick up the latest release; :#head will pick up the latest
 ## commit.
 ## 
-## Initializing
-## If initializing nasher in a new folder, library initialization will be included as a optional prompt during
-## the initialization process.  Initializing the library system clones the master library repo and creates an
-## empty ``installed.json`` file in the libraries folder.  This file should not be edited by hand.
-## 
-## If a nasher project is already initialized you can initialize just the library system with the command
-##    nasher init [--l|--libraries]
-## 
 ## Installing a library
 ## If you reference a library in your nasher.cfg file and that library is not installed, but is available on the
 ## master library listing, you will be prompted to install the library.  You can also install a public or private
@@ -82,9 +83,6 @@ import cli, git, manifest, shared
 ## Uninstalling a library
 ## If you want to remove a library from the list of installed libraries:
 ##    nasher uninstall --[l|library|libraries]:<name>[;<name>...]
-## 
-## Listing installed libraries:
-##    nasher list --[l|libraries]
 ## 
 ## Updating public libraries.  If not arguments, all libraries and the master listing will be updated.
 ##    nasher update --[l|library|libraries]:<name>[;<name>...]
@@ -205,12 +203,12 @@ proc isOnLibraryList(library, file: string): bool =
   parseLibraryManifest(file).data.hasKey(library)
 
 #Works
-proc isAvailable(library: string): bool =
+proc isAvailable*(library: string): bool =
   ## Returns wehther library is on public libraries list
   library.isOnLibraryList(getLibrariesDir() / publicLibraries)
 
 #Works
-proc isInstalled(library: string): bool =
+proc isInstalled*(library: string): bool =
   ## Returns whether library is on installed libraries list
   library.isOnLibraryList(getLibrariesDir() / installedLibraries)
 
@@ -318,24 +316,24 @@ proc parseLibrary(): Library =
   cfg.writeConfig(file)
   result = library
 
-proc delete(installedManifest: var Manifest, name: string) = 
-  let path = installedManifest.data[name].fields["path"].getStr()
+proc delete(installedManifest: var Manifest, library: string) = 
+  let path = installedManifest.data[library].fields["path"].getStr()
   if path.isUrl:
-    display("Library", fmt"uninstalling public library {name}; associated repo deleted")
-    installedManifest.data.delete(name)
-    #removeDir(getLibraryDir(name))
+    display("Library", fmt"uninstalling public library {library}; associated repo deleted")
+    installedManifest.data.delete(library)
+    #removeDir(getLibraryDir(library))
   else:
-    display("Library", fmt"uninstalling private library {name}; files remain available at {path}, " &
+    display("Library", fmt"uninstalling private library {library}; files remain available at {path}, " &
       "but will no longer be accessible as a nasher library.")
-    installedManifest.data.delete(name)
+    installedManifest.data.delete(library)
 
-proc uninstall(name: string, installedManifest: var Manifest) =
-  var parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["children"])
+proc uninstall(library: string, installedManifest: var Manifest) =
+  var parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %library in x.fields["children"])
 
   ## experiment for uninstalling from the top - this isn't working, need to update a variable in the loop
-  var childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %name in x.fields["parents"])
+  var childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %library in x.fields["parents"])
   if childLibraries.len > 0:
-    warning(fmt"library {name} has dependent libraries and cannot be uninstalled; the following " &
+    warning(fmt"library {library} has dependent libraries and cannot be uninstalled; the following " &
       "libraries must be uninstalled first: " & childLibraries.getElems().join(", "))
     let question = "Do you want to uninstall these libraries?"
     if askIf(question):
@@ -348,27 +346,26 @@ proc uninstall(name: string, installedManifest: var Manifest) =
   if parentLibraries.len > 0:
     for k, v in parentLibraries:
       var elements = v["children"].getElems()
-      elements.keepIf(proc (x: JsonNode): bool = x != %name)
+      elements.keepIf(proc (x: JsonNode): bool = x != %library)
       if elements.len > 0:
-        installedManifest.data[k].removeElements("children", @[name])
-        debug(fmt"reference to {name} removed as child element of {k}")
+        installedManifest.data[k].removeElements("children", @[library])
+        debug(fmt"reference to {library} removed as child element of {k}")
       else:
         uninstall(k, installedManifest)
         
-    if installedManifest.data.hasKey(name):
-      installedManifest.delete(name)
+    if installedManifest.data.hasKey(library):
+      installedManifest.delete(library)
   else:
-    installedManifest.delete(name)
+    installedManifest.delete(library)
 
-proc uninstall*(name: string) =
+proc uninstall*(library: string) =
   var 
     file = getLibrariesDir() / installedLibraries
     installedManifest = parseLibraryManifest(file)
 
-  uninstall(name, installedManifest)
+  uninstall(library, installedManifest)
   #installedManifest.write(target = file)
 
-#Works
 proc install(library: Library, manifest: var Manifest, sector: Sector = private) =
   ## Installs library into manifest as a sector library.  Called directly for private
   ## library installs, called from overloaded `install` for public library installations.
@@ -591,52 +588,5 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
                      "you must publish it either privately or publicly.")
           continue
 
-# test stuff here, since I haven't figure out the actual nim test procedures yet
-when false:
-  #importing options creates a circular reference.  going to have to reformat some stuff
-  # to allow it.  Might have to promote libraries to a command or move handleLibraries to shared?
-  proc library*(opts: Options) =
-    let
-      alias = opts["command"] == "alias"
-      cmd = opts.parseConfigCmd
-    if cmd == "":
-      help(if alias: helpAlias else: helpConfig)
-
-    let
-      dir = opts.get("directory", getCurrentDir())
-      level = opts.get("level", "global")
-
-    if level == "local" and not existsPackageFile(dir):
-      fatal("This is not a nasher repository. Please run init")
-
-    let
-      cfgDir = if level == "local": dir else: ""
-      file = getConfigFile(cfgDir, if alias: "aliases.cfg" else: "user.cfg")
-    var cfg = newOptions(file)
-
-    case cmd
-    of "list":
-      let keys = toSeq(cfg.keys).sorted
-      for key in keys:
-        echo key, " = ", cfg[key]
-    of "get":
-      let key = opts["key"]
-      if cfg.hasKey(key):
-        echo cfg[key]
-    of "set":
-      if not alias and opts["key"] in prohibitedOpts:
-        fatal("Prohibited key name " & opts["key"])
-      cfg[opts["key"]] = opts["value"]
-      cfg.writeConfigFile(file, alias)
-    of "unset":
-      cfg.del(opts["key"])
-      cfg.writeConfigFile(file, alias)
-    else:
-      assert false
-
 when isMainModule:
-  let escaped = "\"escaped-string\""
-  let unescaped = "unescaped-string"
-
-  echo escaped.isEscaped()
-  echo unescaped.isEscaped()
+  discard

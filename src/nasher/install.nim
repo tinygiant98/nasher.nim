@@ -1,6 +1,6 @@
 import os, strformat
 
-import utils/[cli, nwn, options, shared]
+import utils/[cli, libraries, nwn, options, shared]
 
 const
   helpInstall* = """

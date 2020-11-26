@@ -28,7 +28,7 @@ const
     --no-color     Disable color output (automatic if not a tty)
   """
 
-proc init*() =
+proc initLibrary() =
   ## Initializes the library system by creating the folder all public libraries will be stored
   ## in and creating an example installed.json.  Called during the nasher init process, but can
   ## be called separately.
@@ -47,48 +47,53 @@ proc init*() =
   else:
     error("The library system could not be initialized")
 
-proc init*(opts: Options, pkg: PackageRef): bool =
+proc initProject(opts: Options, pkg: PackageRef): bool =
   ## Initializes a nasher project
+  let
+    dir = opts.getOrPut("directory", getCurrentDir())
+    file = dir / "nasher.cfg"
+
+  if fileExists(file):
+    fatal(dir & " is already a nasher project")
+
+  display("Initializing", "into " & dir)
+
+  try:
+    display("Creating", "package file at " & file)
+    createDir(dir)
+    writeFile(file, genPackageText(opts))
+    success("created package file")
+  except:
+    fatal("Could not create package file at " & file)
+
+  # TODO: support hg
+  if opts.getOrPut("vcs", "git") == "git":
+    try:
+      display("Initializing", "git repository")
+      if gitInit(dir):
+        gitIgnore(dir)
+      success("initialized git repository")
+    except:
+      error("Could not initialize git repository: " & getCurrentExceptionMsg())
+
+  if askif("Initializing the library system will clone the nasher repo " & 
+          "containing the list of public libraries.  Do you want to continue?", default = Yes):
+    initLibrary()
+  else:
+    display("Skipping", "library system")
+
+  success("project initialized")
+
+  # Check if we should unpack a file
+  if opts.hasKey("file"):
+    opts.verifyBinaries
+    result = true
+
+proc init*(opts: Options, pkg: PackageRef): bool =
   case opts.get("list")
   of "libraries":
-    init()
+    # init on library shouldn't run unpack
+    initLibrary()
+    result = false
   else:
-    let
-      dir = opts.getOrPut("directory", getCurrentDir())
-      file = dir / "nasher.cfg"
-
-    if fileExists(file):
-      fatal(dir & " is already a nasher project")
-
-    display("Initializing", "into " & dir)
-
-    try:
-      display("Creating", "package file at " & file)
-      createDir(dir)
-      writeFile(file, genPackageText(opts))
-      success("created package file")
-    except:
-      fatal("Could not create package file at " & file)
-
-    # TODO: support hg
-    if opts.getOrPut("vcs", "git") == "git":
-      try:
-        display("Initializing", "git repository")
-        if gitInit(dir):
-          gitIgnore(dir)
-        success("initialized git repository")
-      except:
-        error("Could not initialize git repository: " & getCurrentExceptionMsg())
-
-    if askif("Initializing the library system will clone the nasher repo " & 
-            "containing the list of public libraries.  Do you want to continue?", default = Yes):
-      init()
-    else:
-      display("Skipping", "library system")
-
-    success("project initialized")
-
-    # Check if we should unpack a file
-    if opts.hasKey("file"):
-      opts.verifyBinaries
-      result = true
+    result = initProject(opts, pkg)
