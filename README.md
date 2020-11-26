@@ -588,13 +588,14 @@ $ nasher init foo --file:"~/Documents/Neverwinter Nights/modules/foobar.mod"
 
 Lists all available targets defined the in [nasher.cfg](#nashercfg) along with
 their descriptions, source file patterns, and the name of the file that will be
-generated. The first listed target is the default for other commands.
+generated. The first listed target is the default for other commands.  Lists all
+available or installed libraries, either public or private.
 
 #### Options
 
 | Flag      | Description            |
 | ---       | ---                    |
-| `--quiet` | list only target names |
+| `--quiet` | list only target/library names |
 
 
 ### unpack

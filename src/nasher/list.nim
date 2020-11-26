@@ -9,7 +9,12 @@ const
   Description:
     For each target, lists the name, description, source files, and final
     filename of all build targets. These names can be passed to the compile or
-    pack commands.
+    pack commands.  For a library, list information for each installed or
+    publicly available library.
+
+  Options:
+    --l|lib[:<library>]   List details for all libraries or a specified library
+    --public|private      List public/private libraries [default: private]
 
   Global Options:
     -h, --help     Display help for nasher or one of its commands

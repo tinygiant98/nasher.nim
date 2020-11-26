@@ -1,6 +1,41 @@
 import json, os, parsecfg, sequtils, strformat, strutils, tables, uri
 import cli, git, manifest, shared
 
+## Libraries Implementation
+## 
+## Init =========================================
+## 
+## The library init command is an extension of nasher's init command and maintain full backward compatibility.
+## Init runs along with nasher init, or can be run separately if a nasher project has already been initialized in
+## the target folder
+##  
+##  `nasher init -l|lib|library|libraries`
+## 
+## Init clones the main packages repo that contains the updated packages.json and creates an empty installed.json
+## in the user's config folder (same folder the global user.cfg is maintained)
+## 
+## List =========================================
+## 
+## The library list command is an extension of nasher's list command for package targets.  To list libraries, run
+## 
+##  `nasher list -l|lib|library|libraries[:<library>] [--public|private] [--quite|verbose|debug]`
+##    -l|lib|library|libraries without a library value will list all available libraries in the passed sector
+##    [:<library>] will limit the list to just the desired library, if it exists
+##    --public will list all libraries in the public listing (packages.json)
+##    --private will list all libraries in the installed listing (installed.json)
+##    
+##    no verbosity argument will list the library name, path and description
+##    --quiet will list only the library name
+##    --verbose will list the library name, path, description, vcs method, and license
+## 
+## Running `nasher list` without a -l|... argument will run the original list command for
+## package targets
+## 
+## Install ======================================
+## 
+## The library install command is an extenstion of nasher's install command and is fully-backward compatible.
+## 
+
 ## Nasher Libraries Implementation
 ## 
 ## This system allows for publication of two types of libraries: private and public.  Private libraries
@@ -95,10 +130,10 @@ type
 const
   # TODO change library flag to use alias-like system
   libraryFlag = '@'  # change to ${}? see SM's example  incorporate into aliases
-  masterFolder = "__library-master"
+  masterFolder* = "__library-master"
   installedLibraries* = "installed.json"
   publicLibraries* = masterFolder / "packages.json"
-  masterRepo = "https://github.com/tinygiant98/packages"  # eventually change this to a repo in SM's github
+  masterRepo* = "https://github.com/tinygiant98/packages"  # eventually change this to a repo in SM's github
 
 #Works
 proc parseLibraryManifest*(file: string): Manifest =
@@ -107,7 +142,7 @@ proc parseLibraryManifest*(file: string): Manifest =
   result.read(file)
 
 #Works
-proc newLibraryManifest(dir, file: string) =
+proc newLibraryManifest*(dir, file: string) =
   ## Creates a new library-specific manifest for "installed.json" and inserts an example entry
   let target = dir / file
 
@@ -449,24 +484,6 @@ proc install(name: string, parent = "") =
   else:
     debug("Library", "public `install` function called without valid URL as its path")
     fatal("An unknown error has occurred ...")
-
-proc initLibraries*() =
-  ## Initializes the library system by creating the folder all public libraries will be stored
-  ## in and creating an example installed.json.  Called during the nasher init process, but can
-  ## be called separately.
-  display("Initializing", "library system")
-
-  if not existsOrCreateDir(getLibrariesDir()):
-    gitClone(getLibrariesDir(), masterRepo, masterFolder)
-    newLibraryManifest(getLibrariesDir(), installedLibraries)
-  else:
-    warning("library system was previously installed, no action taken")
-    return
-
-  if dirExists(getLibrariesDir() / masterFolder):
-    success("initialized library system")
-  else:
-    error("The library system could not be initialized")
 
 #TODO, works to "publish" a private library (local machine), but need a process similar to nimble to publish
 # a public library.  Need to learn more about interfacing with GitHub before I can finish this.

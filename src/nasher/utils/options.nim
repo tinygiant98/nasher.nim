@@ -239,7 +239,7 @@ proc parseCmdLine(opts: Options) =
               opts["files"] = opts["files"] & ";" & val
           else:
             opts[key]= val
-        of "list":
+        of "init", "list":
           case key
           of "l", "lib", "library", "libraries":
             opts.putKeyOrHelp("list", "libraries")
@@ -410,9 +410,9 @@ proc parsePackageFile(pkg: PackageRef, file: string) =
       pkg.addTarget(target)
       debug("Section:", fmt"[{e.section}]")
       section = e.section.toLower
-    of cfgKeyValuePair, cfgOption:
+    of cfgKeyValuePair:
       key = e.key.toLower
-      debug("Option:", fmt"{key} = {e.value}")
+      debug("Key Value Pair:", fmt"{e.key} = {e.value}")
       case section
       of "package", "sources":
         case key
@@ -452,6 +452,8 @@ proc parsePackageFile(pkg: PackageRef, file: string) =
         pkg.rules.add((e.key, e.value))
       else:
         discard
+    of cfgOption:
+      debug("Option:", fmt"{e.key} = {e.value}")
     of cfgError:
       fatal(e.msg)
   pkg.addTarget(target)
