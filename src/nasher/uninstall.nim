@@ -7,8 +7,7 @@ const
     nasher uninstall [options]
 
   Description:
-    Uninstalls the specific local library.  Libraries cannot be uninstalled if other libraries
-    are dependent upon them.
+    Uninstalls the specified library.
 
   Options:
     --default      Automatically accept the default answers to prompts
@@ -42,10 +41,9 @@ proc delete(installedManifest: var Manifest, library: string) =
 proc uninstall(library: string, installedManifest: var Manifest) =
   var
     parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %library in x.fields["children"])
+    childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %library in x.fields["parents"])
     childKeys: seq[string]
 
-  ## experiment for uninstalling from the top - this isn't working, need to update a variable in the loop?
-  var childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %library in x.fields["parents"])
   if childLibraries.len > 0:
     for key in childLibraries.keys:
       childKeys.add(key)
@@ -55,9 +53,9 @@ proc uninstall(library: string, installedManifest: var Manifest) =
     
     let question = "Do you want to uninstall these libraries?"
     if askIf(question, default = No):
-      for child in childKeys:
-        if installedManifest.data.hasKey(child):
-          uninstall(child, installedManifest)
+      for key in childKeys:
+        if installedManifest.data.hasKey(key):
+          key.uninstall(installedManifest)
     else:
       return
       
