@@ -1,5 +1,5 @@
-import json, os, parsecfg, sequtils, strformat, strutils, tables, uri
-import cli, git, manifest, shared
+import json, os, parsecfg, sequtils, strformat, strutils, uri
+import cli, git, manifest
 
 ## Libraries Implementation
 ## 
@@ -161,7 +161,7 @@ proc newLibraryManifest*(dir, file: string) =
                % @[])
   manifest.write(target)
 
-proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
+proc getOptionalField*(cfg: Config, section, key: string, default = ""): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
   ## file cfg.  If not found, default is returned.  Handling multiple identical keys is not
   ## supported.
@@ -170,7 +170,7 @@ proc getOptionalField(cfg: Config, section, key: string, default = ""): string =
   if result == "":
     result = default
 
-proc getRequiredField(cfg: var Config, section, key: string, prompt = true): string =
+proc getRequiredField*(cfg: var Config, section, key: string, prompt = true): string =
   ## Attempts to obtain the value associated with key in the passed section of configuration
   ## file cfg.  If not found, throws a fatal error.  Handling multiple identical keys is not
   ## supported
@@ -218,14 +218,14 @@ proc isLibrary(pattern: string): bool =
   pattern[0] == libraryFlag
 
 #TODO
-proc isUrl(path: string): bool =
+proc isUrl*(path: string): bool =
   ## Returns whether path is a URL
   # TODO - this is super-hacky.  Find a better way
   # Might fail on something like file://...
   parseUri(path).hostname.len > 0
 
 #Works, but is this the right way? -- change to add?
-proc addElements(json: JsonNode, key: string, values: seq[string], absolute = false) =
+proc addElements*(json: JsonNode, key: string, values: seq[string], absolute = false) =
   ## Adds unique values to json[key] array
   ## 
   ## This was originally meant to help create an array list of dependencies from a library
@@ -243,7 +243,7 @@ proc addElements(json: JsonNode, key: string, values: seq[string], absolute = fa
         json[key].add %value
 
 #Works -- change to keepIf?
-proc removeElements(json: JsonNode, key: string, values: seq[string], absolute = false) =
+proc removeElements*(json: JsonNode, key: string, values: seq[string], absolute = false) =
   ## Removes elements from an array at json[key] if they are in values
   ## absolute = true --> remove all values (set to %[])
   var elements = json[key].getElems()
@@ -254,8 +254,7 @@ proc removeElements(json: JsonNode, key: string, values: seq[string], absolute =
     elements.keepIf(proc (x: JsonNode): bool = x.getStr() notin values)
     json[key]= %elements
 
-#Works
-proc parseReference(pattern: string): Reference =
+proc parseReference*(pattern: string): Reference =
   ## Parse a pattern into a Reference.
   let tokens = split(split(pattern, "/")[0], {'[', ':'})
   var reference: Reference
@@ -279,7 +278,7 @@ proc parseReference(pattern: string): Reference =
 
   result = reference
 
-proc filter(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {.inline.} =
+proc filter*(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {.inline.} =
   ## keeps nodes in j that satisfy pred
   assert j.kind == JObject
   result = newJObject()
@@ -288,7 +287,7 @@ proc filter(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {.
     if pred(j[k]):
       result.add(k, v)
 
-proc parseLibrary(): Library =
+proc parseLibrary*(): Library =
   ## Populates a Library (type) with data from the nasher.cfg in the current directory.
   ## TODO support hg
   var
@@ -316,221 +315,6 @@ proc parseLibrary(): Library =
   cfg.writeConfig(file)
   result = library
 
-proc delete(installedManifest: var Manifest, library: string) = 
-  let path = installedManifest.data[library].fields["path"].getStr()
-  if path.isUrl:
-    display("Library", fmt"uninstalling public library {library}; associated repo deleted")
-    installedManifest.data.delete(library)
-    #removeDir(getLibraryDir(library))
-  else:
-    display("Library", fmt"uninstalling private library {library}; files remain available at {path}, " &
-      "but will no longer be accessible as a nasher library.")
-    installedManifest.data.delete(library)
-
-proc uninstall(library: string, installedManifest: var Manifest) =
-  var parentLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %library in x.fields["children"])
-
-  ## experiment for uninstalling from the top - this isn't working, need to update a variable in the loop
-  var childLibraries = installedManifest.data.filter(proc(x: JsonNode): bool = %library in x.fields["parents"])
-  if childLibraries.len > 0:
-    warning(fmt"library {library} has dependent libraries and cannot be uninstalled; the following " &
-      "libraries must be uninstalled first: " & childLibraries.getElems().join(", "))
-    let question = "Do you want to uninstall these libraries?"
-    if askIf(question):
-      for library in childLibraries:
-        uninstall(library.getStr(), installedManifest)
-
-      return #?
-  ## end experiment
-
-  if parentLibraries.len > 0:
-    for k, v in parentLibraries:
-      var elements = v["children"].getElems()
-      elements.keepIf(proc (x: JsonNode): bool = x != %library)
-      if elements.len > 0:
-        installedManifest.data[k].removeElements("children", @[library])
-        debug(fmt"reference to {library} removed as child element of {k}")
-      else:
-        uninstall(k, installedManifest)
-        
-    if installedManifest.data.hasKey(library):
-      installedManifest.delete(library)
-  else:
-    installedManifest.delete(library)
-
-proc uninstall*(library: string) =
-  var 
-    file = getLibrariesDir() / installedLibraries
-    installedManifest = parseLibraryManifest(file)
-
-  uninstall(library, installedManifest)
-  #installedManifest.write(target = file)
-
-proc install(library: Library, manifest: var Manifest, sector: Sector = private) =
-  ## Installs library into manifest as a sector library.  Called directly for private
-  ## library installs, called from overloaded `install` for public library installations.
-  let file = getLibrariesDir() / installedLibraries
-
-  manifest.add(library)
-  manifest.write(target = file)
-
-  if library.name.isInstalled:
-    success(fmt"{library.name} successfully installed as a {sector} library")
-  else:
-    fatal(fmt"{library.name} could not be installed.  File a bug report at ...")  
-
-#Works
-proc install(name: string, parent = "") =
-  ## For use when installing public libraries.  Creates the target folder for the repository,
-  ## clones the repo into the target folder and inserts an entry into "installed.json".  If repo
-  ## cannot be cloned, throws a non-fatal error.  Checks for library dependencies and installs
-  ## those libraries if they are available.
-  
-  let
-    target = getLibrariesDir() / name
-    publicManifest = parseLibraryManifest(getLibrariesDir() / publicLibraries)
-    publicLibrary = publicManifest.data[name].to(Library)
-
-  var
-    installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
-  
-  # This procedure is only for public libraries, so the path has to be a url
-  if isUrl(publicLibrary.path):
-    # Installing, so don't want to keep any old files, if there are any
-    removeDir(target)
-    
-    display("Installing", fmt"library {name} from {publicLibrary.path}")
-    # Clone it
-    gitClone(getLibrariesDir(), publicLibrary.path, publicLibrary.name)
-    # Put it on the "installed.json" manifest
-    # Maybe I should call this overloaded install method "list" instead, since that's what it does
-    publicLibrary.install(installedManifest, sector = public)
-
-    # parent only passed if this is a dependency, add parent listing for an easy reference
-    # later when unistalling so we know if this library is a dependency of more than one other
-    # library --> then prompt for removal and warning for other libraries not working, or ...
-    # leave it there and info/display that it wasn't removed because of dependencies (probably better)
-    if parent.len > 0:
-      # TODO I've used this sequence at least three times so far, put it into a procedure
-      installedManifest.data[publicLibrary.name].addElements(key = "parents", values = @[parent])
-      # maybe not write this here and just pass the continuously modify manifest around until it's done?
-      installedManifest.write(target = getLibrariesDir() / installedLibraries)
-
-    # See if a nasher.cfg exists in the new repo, if so, parse for dependencies, check if they're on the
-    # primary listing and, if so, install, and repeat.
-    withDir(getLibrariesDir() / publicLibrary.name):
-      var
-        cfg: Config
-        reference: Reference
-        #instLibrary: Library
-        children: seq[string]
-
-      if fileExists(getCurrentDir() / "nasher.cfg"):
-        cfg = loadConfig(getCurrentDir() / "nasher.cfg")
-
-        ## This section is my first attempt, using a dependencies section in nasher.cfg.  This can work,
-        ## but since we're already bought into the `include = "@library:tag[branch]"` construct, let's use
-        ## that.  A library that is based on another library should have these includes anyway.
-        #if cfg.hasKey("Dependencies") and cfg["Dependencies"].hasKey("requires"):
-        #  for key, value in cfg["Dependencies"]:
-        #    if key == "requires":
-        #      if value.isAvailable and not value.isInstalled:
-        #        debug("Library", fmt"attempting to install {value} as a dependency of {library.name}")
-        #        value.install
-        #      else:
-        #        error(fmt"could not install library {value} as a dependency of {library.name}; " &
-        #                 "the library is either not published or already installed.")
-        #else:
-        #  debug("Library", fmt"{library.name} has no dependencies listed in its nasher.cfg")
-
-        ## This is the second attempt, using the [Sources] section, which already exists.  We'll just have to
-        ## assume that the main [Sources] is where the libraries would be located. Can't do much if they
-        ## have a bunch of crap in the targets.  We have to have a starndard at some point.  Maybe explicit
-        ## dependencies is the way to go.  If so, change the `include =` construct to an explicity dependencies
-        ## section.  Also, probably move this to a function to also be used by and `update libraries` process
-        if cfg.hasKey("Sources"):
-          for key, value in cfg["Sources"]:
-            if key == "include":
-              reference = value.parseReference
-              if reference.library.isAvailable and not reference.library.isInstalled:
-                debug("Library", fmt"attempting to install {reference.library} as a dependency of {publicLibrary.name}")
-                reference.library.install(parent = publicLibrary.name)   #recursion
-                children.add(value)
-              else:
-                error(fmt"could not install library {reference.library} as a dependency of {publicLibrary.name}; " &
-                         "the library is either not published publicly or is already installed.")
-
-          # TODO split these out, don't need repeated code
-          if children.len > 0:
-  
-            # installedManifest was changed during the earlier install (since the last read), so read it again
-            installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
-            # add the children elements
-            installedManifest.data[publicLibrary.name].addElements(key = "children", values = children, absolute = true)
-            # rewrite the file
-            installedManifest.write(target = getLibrariesDir() / installedLibraries)
-          else:
-            installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
-            # delete the children elements
-            installedManifest.data[publicLibrary.name].removeElements(key = "children", values = @[], absolute = true)
-            installedManifest.write(target = getLibrariesDir() / installedLibraries)
-        else:
-          debug("Library", fmt"{publicLibrary.name} has no dependencies listed in its nasher.cfg")
-      else:
-        debug("Library", fmt"{publicLibrary.name} has no nasher.cfg file")
-  else:
-    debug("Library", "public `install` function called without valid URL as its path")
-    fatal("An unknown error has occurred ...")
-
-#TODO, works to "publish" a private library (local machine), but need a process similar to nimble to publish
-# a public library.  Need to learn more about interfacing with GitHub before I can finish this.
-proc publishLibrary*(sector: Sector) =
-  ## Publish a private or public library
-  let 
-    installed = getLibrariesDir() / installedLibraries
-
-  var
-    library = parseLibrary()
-    libraries = parseLibraryManifest(installed)
-
-  case sector
-  of private:
-    library.path = getCurrentDir().replace("\\", "/")
-    
-    if library.name.isInstalled:
-      if askIf(fmt"A library named {library.name} is already installed.  Do you want to overwrite " &
-              "the installed library with this library?"):
-        library.install(libraries)
-        success(fmt"installed library {library.name} overwritten")
-      else:
-        fatal(fmt"User elected to end operation; library {library.name} not published.")
-    else:
-      library.install(libraries)
-  of public:
-    if library.vcs == "none":
-      if askIf("This project must be a vcs repository to publish publicly. " &
-              "Do you want to publish privately?"):
-        publishLibrary(private)
-        return
-      else:
-        fatal(getCurrentDir() & " is not a vcs repository and cannot be published publicly.")
-    elif library.vcs == "git":
-      if library.path.isUrl:
-        #see if we're going to use it or the git's
-        if gitRemote() == library.path:
-          # gitRemote and library.path in nasher.cfg are the same
-          # publish with that url
-          if library.name.isInstalled:
-            if askIf(fmt"A library named {library.name} is already installed.  Do you want to overwrite " &
-                    "the installed library with this library?"):
-              library.install(libraries)
-              success(fmt"installed library {library.name} overwritten")
-            else:
-              fatal(fmt"user elected to end operation; library {library.name} not published.")
-          else:
-            library.install(libraries)  # is this right?
-
-#Works
 proc handleLibraries*(patterns: var seq[string], display = true) =
   ## Receives a sequence of patterns (includes and excludes from nasher.cfg) and modifies the library
   ## entries to reference local location (paths) of public and private libraries.  Non-library entries are
@@ -576,7 +360,7 @@ proc handleLibraries*(patterns: var seq[string], display = true) =
           if askIf(fmt"The requested library {reference.library} is not installed, but is available. " &
                       "Do you want to install it?", 
                    default = Yes):
-            reference.library.install
+            #reference.library.install
             handleLibraries(patterns, display)
           else:
             # Do nothing - is a nasher error thrown if the file isn't found?

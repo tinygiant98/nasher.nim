@@ -27,10 +27,10 @@ proc gitPull*(repo = getCurrentDir(), throw = false) =
     if gitResult.exitCode != 0 and throw:
       error(gitResult.output)
 
-proc gitClone*(dir = getCurrentDir(), repo, target: string, throw = false) =
+proc clone*(path, dir, target: string, throw = false) =
   ## clone repo into target under dir
   withDir(dir):
-    let gitResult = execCmdEx("git clone " & repo & " " & target)
+    let gitResult = execCmdEx("git clone " & path & " " & target)
 
     if gitResult.exitCode != 0 and throw:
       error(gitResult.output)

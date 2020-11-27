@@ -29,14 +29,12 @@ const
   """
 
 proc initLibrary() =
-  ## Initializes the library system by creating the folder all public libraries will be stored
-  ## in and creating an example installed.json.  Called during the nasher init process, but can
-  ## be called separately.
+  ## Initializes the library system
   display("Initializing", "library system")
 
   if not existsOrCreateDir(getLibrariesDir()):
     debug("Cloning", fmt"master package repo into {getLibrariesDir() / masterFolder}")
-    gitClone(getLibrariesDir(), masterRepo, masterFolder)
+    masterRepo.clone(getLibrariesDir(), masterFolder)
     newLibraryManifest(getLibrariesDir(), installedLibraries)
   else:
     error("library system was previously installed, no action taken")
@@ -47,6 +45,7 @@ proc initLibrary() =
   else:
     error("The library system could not be initialized")
 
+# this is the original nasher init function
 proc initProject(opts: Options, pkg: PackageRef): bool =
   ## Initializes a nasher project
   let
@@ -76,6 +75,7 @@ proc initProject(opts: Options, pkg: PackageRef): bool =
     except:
       error("Could not initialize git repository: " & getCurrentExceptionMsg())
 
+  # add library init process to project init process (optional, defaults true)
   if askif("Initializing the library system will clone the nasher repo " & 
           "containing the list of public libraries.  Do you want to continue?", default = Yes):
     initLibrary()
@@ -89,11 +89,11 @@ proc initProject(opts: Options, pkg: PackageRef): bool =
     opts.verifyBinaries
     result = true
 
+# added as a traffic cop to run the correct inti based on user input
 proc init*(opts: Options, pkg: PackageRef): bool =
   case opts.get("list")
   of "libraries":
-    # init on library shouldn't run unpack
     initLibrary()
-    result = false
+    result = false  # false because we don't want to run the unpack process
   else:
     result = initProject(opts, pkg)

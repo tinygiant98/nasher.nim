@@ -239,19 +239,13 @@ proc parseCmdLine(opts: Options) =
               opts["files"] = opts["files"] & ";" & val
           else:
             opts[key]= val
-        of "init", "list":
+        of "init", "install", "list":
           case key
           of "l", "lib", "library", "libraries":
             opts.putKeyOrHelp("list", "libraries")
             opts["library"] = val
           of "public", "private": 
             opts.putKeyOrHelp("level", key)
-        of "library":
-          case key
-          of "i", "install":
-            opts["library-install"] = "true"
-          of "l", "list":
-            opts["library-list"] = "true"
         else:
           opts[key] = val
     else: discard

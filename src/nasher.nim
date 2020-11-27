@@ -1,6 +1,6 @@
 import os
 import nasher/[init, list, config, unpack, convert, compile, pack, install, launch]
-import nasher/utils/[cli, git, libraries, options, shared]
+import nasher/utils/[cli, git, options, shared]
 
 const
   NimblePkgVersion {.strdefine.} = "devel"
@@ -91,25 +91,27 @@ when isMainModule:
         unpack(opts, pkg)
     of "unpack":
       unpack(opts, pkg)
-    of "library":
-      if opts.get("library-install") == "true":
-        publishLibrary(private)
     of "list":
       list(opts, pkg)
     of "convert", "compile", "pack", "install", "play", "test", "serve":
-      let targets = pkg.getTargets(opts.get("targets"))
-      for target in targets:
-        opts["target"] = target.name
-        if branch == "none":
-          branch = target.branch
-        if branch.len > 0:
-          display("VCS Branch:", gitSetBranch(dir, branch))
+      # see if we're doing library stuff for the install command
+      if opts.get("list") == "libraries" or (opts.get("targets").len > 0 and opts.get("targets") notin getTargetNames(pkg)):
+        install(opts, pkg)
+      else:
+        let targets = pkg.getTargets(opts.get("targets"))
 
-        if convert(opts, pkg) and
-           compile(opts, pkg) and
-           pack(opts, pkg) and
-           install(opts, pkg):
-             launch(opts)
+        for target in targets:
+          opts["target"] = target.name
+          if branch == "none":
+            branch = target.branch
+          if branch.len > 0:
+            display("VCS Branch:", gitSetBranch(dir, branch))
+
+          if convert(opts, pkg) and
+            compile(opts, pkg) and
+            pack(opts, pkg) and
+            install(opts, pkg):
+              launch(opts)
     else:
       help(helpAll, QuitFailure)
   except NasherError:

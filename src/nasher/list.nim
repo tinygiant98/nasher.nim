@@ -4,7 +4,7 @@ import utils/[cli, libraries, manifest, options]
 const
   helpList* = """
   Usage:
-    nasher list [options]
+    nasher list [target] [options]
 
   Description:
     For each target, lists the name, description, source files, and final
@@ -13,6 +13,7 @@ const
     publicly available library.
 
   Options:
+    <target>              List details for specific target or library
     --l|lib[:<library>]   List details for all libraries or a specified library
     --public|private      List public/private libraries [default: private]
 
@@ -56,7 +57,7 @@ proc listLibraries(opts: Options, sector: Sector = private) =
     if hasRun: stdout.write("\n")
     display("Library:", v["name"].getStr(), priority = HighPriority)
     display("Path:", v["path"].getStr())
-    display("VCS:", v["method"].getStr(), priority = LowPriority)
+    display("VCS:", v["vcs"].getStr(), priority = LowPriority)
     display("Description:", v["description"].getStr())
     display("License:", v["license"].getStr(), priority = LowPriority)
     display("Parents:", v["parents"].getElems().mapIt(it.getStr()).join(", "), priority = LowPriority)
@@ -70,7 +71,6 @@ proc listTargets(opts: Options, pkg: PackageRef) =
   # convenience check, in case user is looking for a library
   if listTarget.len > 0 and listTarget notin getTargetNames(pkg):
     var sector: Sector
-    echo fmt"{sector=}"
     
     if isInstalled(listTarget):
       sector = private
