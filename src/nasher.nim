@@ -1,5 +1,5 @@
 import os
-import nasher/[init, list, config, unpack, convert, compile, pack, install, launch]
+import nasher/[init, list, config, unpack, convert, compile, pack, install, launch, uninstall]
 import nasher/utils/[cli, git, options, shared]
 
 const
@@ -93,6 +93,8 @@ when isMainModule:
       unpack(opts, pkg)
     of "list":
       list(opts, pkg)
+    of "uninstall":
+      uninstall(opts)
     of "convert", "compile", "pack", "install", "play", "test", "serve":
       # see if we're doing library stuff for the install command
       if opts.get("list") == "libraries" or (opts.get("targets").len > 0 and opts.get("targets") notin getTargetNames(pkg)):

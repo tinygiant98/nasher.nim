@@ -29,19 +29,21 @@ import cli, git, manifest
 ##    --verbose will list the library name, path, description, vcs method, and license
 ## 
 ## Running `nasher list` without a -l|... argument will run the original list command for
-## package targets
+## package targets.  Running `nasher list <target>` with an invalid target will invoke a convenience function
+## to search for a library with the same name as <target>, making -l:<target> and <target> interchangeable unless
+## there is a target with the same name as a library, in which case the target will take priority.  The library
+## list command does not support repeating names.
 ## 
 ## Install ======================================
 ## 
-## The library install command is an extenstion of nasher's install command and is fully-backward compatible.
+## The library install command is an extension of nasher's install command and is fully-backward compatible.
 ## The command will attempt to install a defined target, however, if the target is not found, available
 ## libraries will be checked to see if the user is attempting to install a library instead of a target.
 ## 
 ##  `nasher install [<library|target>,...] [options]`
 ## 
-## 
-## 
-## 
+## Dependencies listed for the installed library will be installed before the library.  Parent and Child fields
+## will be updated upon installation.
 ## 
 ## Uninstall ====================================
 ##  uninstall a library or the entire library system?
@@ -193,7 +195,7 @@ proc getLibrariesDir*(): string =
   getConfigDir() / "nasher" / "libraries"
 
 #Works
-proc getLibraryDir(library: string): string =
+proc getLibraryDir*(library: string): string =
   ## Returns directory for a specified library
   getLibrariesDir() / library
 

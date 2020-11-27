@@ -28,7 +28,8 @@ type
 const
   nasherCommands =
     ["init", "list", "config", "convert", "compile", "pack", "install", "play",
-     "test", "serve", "unpack", "library", "alias"]
+     "test", "serve", "unpack", "library", "alias", "uninstall", "publish",
+     "unpublish"]
 
 proc `[]=`*[T: int | bool](opts: Options, key: string, value: T) =
   ## Overloaded ``[]=`` operator that converts value to a string before setting
@@ -186,7 +187,7 @@ proc parseCmdLine(opts: Options) =
         opts.putKeyOrHelp("directory", "file", key)
       of "config", "alias":
         opts.putKeyOrHelp("key", "value", key)
-      of "list":
+      of "list", "uninstall":
         opts.putKeyOrHelp("target", key)
       of "compile", "convert", "pack", "install", "play", "test", "serve":
         if opts.hasKeyOrPut("targets", key):

@@ -44,7 +44,7 @@ proc installLibrary*(library: Library, manifest: var Manifest, sector: Sector = 
   else:
     fatal(fmt"{library.name} could not be installed.")
 
-proc installLibrary*(library: string) =
+proc installLibrary*(library: string, installedManifest: var Manifest) =
   ## Installs library, if available.
   try:
     let
@@ -52,13 +52,12 @@ proc installLibrary*(library: string) =
       publicManifest = parseLibraryManifest(getLibrariesDir() / publicLibraries)
       publicLibrary = publicManifest.data[library].to(Library)
 
-    var
-      installedManifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
-    
+    var parents: seq[string]
+
     if isUrl(publicLibrary.path):
       for parent in publicLibrary.parents:
-        parent.getStr().installLibrary()
-        installedManifest.data[publicLibrary.name].addElements(key = "parents", values = @[parent.getStr()])
+        parent.getStr().installLibrary(installedManifest)
+        parents.add(parent.getStr())
         installedManifest.data[parent.getStr()].addElements(key = "children", values = @[publicLibrary.name])
 
       if publicLibrary.name.isInstalled():
@@ -72,12 +71,13 @@ proc installLibrary*(library: string) =
       publicLibrary.path.clone(getLibrariesDir(), publicLibrary.name, throw = true)
       publicLibrary.installLibrary(installedManifest, sector = public)
 
-      let file = getLibrariesDir() / installedLibraries
-      installedManifest.write(target = file)
+      installedManifest.data[publicLibrary.name].addElements(key = "parents", values = parents)
     else:
       warning(fmt"{library} cannot be installed as a public library; its path is not a valid url")
   except KeyError:
     fatal(fmt"cannot find target or library named {library}")
+  finally:
+    installedManifest.write(target = getLibrariesDir() / installedLibraries)
 
 proc installTarget(opts: Options, pkg: PackageRef): bool =
   let
@@ -147,12 +147,13 @@ proc installTarget(opts: Options, pkg: PackageRef): bool =
   return cmd != "install"
 
 proc install*(opts: Options, pkg: PackageRef): bool {.discardable.} =
+  var manifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
 
   if opts.get("list") == "libraries":
-    installLibrary(opts.get("library"))
+    installLibrary(opts.get("library"), manifest)
     result = false
   elif opts.get("targets").len > 0 and opts.get("targets") notin getTargetNames(pkg):
-    installLibrary(opts.get("targets"))
+    installLibrary(opts.get("targets"), manifest)
     result = false
   else:
     result = installTarget(opts, pkg)
