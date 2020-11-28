@@ -1,4 +1,4 @@
-import json, os, strformat, tables
+import json, os, strformat, strutils, tables
 import utils/[cli, git, libraries, manifest, nwn, options, shared]
 
 const
@@ -35,6 +35,8 @@ const
     --no-color     Disable color output (automatic if not a tty)
   """
 
+# TODO add helpPublish
+
 proc installLibrary*(library: Library, manifest: var Manifest, sector: Sector = private) =
   ## Adds library to manifest
   manifest.add(library)
@@ -45,7 +47,7 @@ proc installLibrary*(library: Library, manifest: var Manifest, sector: Sector = 
     fatal(fmt"{library.name} could not be installed.")
 
 proc installLibrary*(library: string, installedManifest: var Manifest) =
-  ## Installs library, if available.
+  ## Installs a pre-defined public library, if available.
   try:
     let
       target = getLibrariesDir() / library
@@ -62,7 +64,6 @@ proc installLibrary*(library: string, installedManifest: var Manifest) =
 
       if publicLibrary.name.isInstalled():
         let question = fmt"{publicLibrary.name} is already installed; keep current version?"
-
         if askIf(question, default = Yes):
           return
       
@@ -78,6 +79,20 @@ proc installLibrary*(library: string, installedManifest: var Manifest) =
     fatal(fmt"cannot find target or library named {library}")
   finally:
     installedManifest.write(target = getLibrariesDir() / installedLibraries)
+
+proc installParents(library: Library, installedManifest: var Manifest): bool =
+  result = true
+
+  for parent in library.parents:
+    if not parent.getStr().isInstalled():
+      if parent.getStr().isAvailable():
+        parent.getStr().installLibrary(installedManifest)
+        installedManifest.data[parent.getStr()].addElements(key = "children", values = @[library.name])
+      else:
+        result = false
+        break
+    else:
+      result = true
 
 proc installTarget(opts: Options, pkg: PackageRef): bool =
   let
@@ -145,6 +160,25 @@ proc installTarget(opts: Options, pkg: PackageRef): bool =
 
   # Prevent falling through to the next function if we were called directly
   return cmd != "install"
+
+proc publish*(opts: Options) =
+  var
+    file = getLibrariesDir() / installedLibraries
+    installedManifest = parseLibraryManifest(file)
+    sector: Sector = parseEnum(opts.get("level", "private"), private)
+    library = parseLibrary(sector)
+  
+  if sector == public:
+    echo fmt"Publicly publish {library.name}"
+    echo $library
+  else:
+    echo fmt"Privately publish {library.name}"
+    echo $library
+
+  if installParents(library, installedManifest):
+    library.installLibrary(installedManifest, sector)
+  
+  installedManifest.write(target = file)
 
 proc install*(opts: Options, pkg: PackageRef): bool {.discardable.} =
   var manifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)

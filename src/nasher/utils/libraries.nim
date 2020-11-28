@@ -1,4 +1,4 @@
-import json, os, parsecfg, sequtils, strformat, strutils, uri
+import json, os, parsecfg, sequtils, strformat, strutils, tables, uri
 import cli, git, manifest
 
 ## Libraries Implementation
@@ -40,82 +40,26 @@ import cli, git, manifest
 ## The command will attempt to install a defined target, however, if the target is not found, available
 ## libraries will be checked to see if the user is attempting to install a library instead of a target.
 ## 
-##  `nasher install [<library|target>,...] [options]`
+##  `nasher install [-l:][<target>[,...]|<library>] [options]`
 ## 
 ## Dependencies listed for the installed library will be installed before the library.  Parent and Child fields
 ## will be updated upon installation.
 ## 
 ## Uninstall ====================================
-##  uninstall a library or the entire library system?
+## 
+## Uninstalls the specified library.  No action taken if a library is not specified.  Convenience function added
+## to allow library to be specified just like a <target>, without the -l.  If a library has other libraries that
+## depend on it, user will be prompted to uninstall those libraries.  Any parent libraries that have no other
+## dependencies will also be uninstalled.
+## 
+##  `nasher uninstall [-l:]<library> [options]`
+##  
 ## Publish ======================================
 ##  public/private
 ## Unpublish ====================================
 ##  public (private just uses uninstall)
 ## Update =======================================
 ##  updates all the cloned library repos (git pull)
-
-## Referencing a library in nasher.cfg:
-## Since I'll be adding SM's aliasing capability, we want to use that functionality to also reference libraries.
-## Libraries do not require an alias to be defined, but will use the same notation.  Libraries will use nasher's
-## normal include/exclude statements to determine which library files to include.
-## 
-## To reference a library, use the alias functionality:
-##    include = "${library-name}/**/*.{nss,json}"
-## 
-## A more complicated call would be
-##    include = "${library-name:release[branch]}/**/*.{nss,json}"
-## 
-## Other than these flags, all other file inclusion and exclusion rules (glob) apply, so the user should have some
-## knowledge of the structure of the library they are including.  If the tag and/or branch referenced in the
-## statement does not exist, the user will be prompted with a list of available tags and branches to chooose from.
-## If the user selects one of these options, the nasher.cfg will be updated with the choice.  :latest and :#head are
-## valid options for the :release entry.  :latest will pick up the latest release; :#head will pick up the latest
-## commit.
-## 
-## Installing a library
-## If you reference a library in your nasher.cfg file and that library is not installed, but is available on the
-## master library listing, you will be prompted to install the library.  You can also install a public or private
-## library manually.  To install a public library:
-##    nasher install --[l|library|libraries]:<name>[;<name>...]
-## 
-## To install a private library, go into the folder which contains the library you want to install.  It must be a
-## nasher project and contain a nasher.cfg with the [Package] information filled in:
-##    nasher install
-## 
-## Uninstalling a library
-## If you want to remove a library from the list of installed libraries:
-##    nasher uninstall --[l|library|libraries]:<name>[;<name>...]
-## 
-## Updating public libraries.  If not arguments, all libraries and the master listing will be updated.
-##    nasher update --[l|library|libraries]:<name>[;<name>...]
-##    nasher update --master
-##    nasher update
-## 
-## Handling override files:
-## Many public script systems have files that are meant to be edited by the user, such as configuration and creature
-## spawn files.  When a library gets updated, these files may be overwritten by the library and wreak havoc on a module.
-## To prevent this, ensure library files are the first to be referenced in the list of included files, followed by
-## local override versions of these scripts.  Files will be installed in order of inclusion and files lower in the list
-## will overwrite files higher on the list.
-##    include = "@core-framework/**/*.{nss,json}"
-##    include = "src/framework/core_c_config.nss}"
-## 
-## OR ... library references also work with exclude statements:
-##    include = "@core-framework/**/*.{nss,json}"
-##    include = "src/framewrok/core_c_config.nss"
-##    exclude = "@core-framework/src/core/core_c_config.nss"
-## 
-## Remove the entire library system.  The user will be prompoted for confirmation since this will delete all public
-## libraries.  Private libraries will not be deleted, but can no longer be referenced in nasher.cfg.
-##    nasher delete --[l|libraries]
-## 
-## Publishing a repo as a public library.  From the root folder of the library to be made public, which must containe a
-## nasher.cfg file:
-##    nasher publish
-## 
-##    Private repos can't be published, only public repos, however the user will be prompted to ensure they want to conduct
-##    this action.  Much like nimble, this action updates the master listing, edits the packages.json file, commits it, then
-##    sends a pull request against it.
 
 type
   Sector* = enum
@@ -186,8 +130,8 @@ proc getRequiredField*(cfg: var Config, section, key: string, prompt = true): st
       result = ask(question, allowBlank = false)
       cfg.setSectionKey(section, key, result)
     else:
-        fatal(fmt"You must include a value for the library's {key}.  Please insert a value " &
-              fmt"for {key} in the {section} section of nasher.cfg")
+      fatal(fmt"You must include a value for the library's {key}.  Please insert a value " &
+            fmt"for {key} in the {section} section of nasher.cfg")
 
 proc getLibrariesDir*(): string =
   ## Returns the base libraries directory (parent folder for all public libraries)
@@ -289,32 +233,87 @@ proc filter*(j: JsonNode, pred: proc(x: JsonNode): bool {.closure.}): JsonNode {
     if pred(j[k]):
       result.add(k, v)
 
-proc parseLibrary*(): Library =
-  ## Populates a Library (type) with data from the nasher.cfg in the current directory.
+proc parseLibrary*(sector: Sector = private): Library =
+  ## Populates a Library (type) with data from the nasher.cfg in the current directory.  Or asks for
+  ## the information through prompting if nasher.cfg doesn't exist.
   ## TODO support hg
   var
     library: Library
     cfg: Config
-  
-  # TODO modify this to use getPackageRoot without all the errors of including options.nim (circular)
-  let file = getCurrentDir() / "nasher.cfg"
-   
+
+  let 
+    file = getCurrentDir() / "nasher.cfg"
+
   if fileExists(file): 
     cfg = loadConfig(getCurrentDir() / "nasher.cfg")
+
+    library.name = cfg.getRequiredField("Package", "name")
+    
+    if sector == public:
+      let url = cfg.getRequiredField("Package", "url")
+      if not url.isUrl():
+        fatal(fmt"{url} is not a valid URL; correct the url in nasher.cfg")
+      else:
+        library.path = url
+    else:
+      library.path = getCurrentDir()
+
+    library.vcs = 
+      if getCurrentDir().exists: "git"
+      else: "none"
+    library.description = cfg.getRequiredField("Package", "description")
+    library.license = cfg.getOptionalField("Package", "license")
+    library.parents = %[]
+    library.children = %[]
+
+    if cfg.hasKey("Dependencies"):
+      for k, _ in cfg["Dependencies"]:
+        if k.isAvailable() or k.isInstalled():
+          library.parents.add(%k)
+        else:
+          error(fmt"dependency {k} not found in public or private library listings; skipping")
   else:
-    fatal(fmt"{file} could not be found.  A valid nasher.cfg is required to publish a library.")
+    let question = "This folder is not a nasher project, do you want to create a library from this folder?"
+    if askIf(question, default = No):
+      display("Collecting", "library information")
+      let name = ask("Enter a name for this library (no spaces or special characters):", allowBlank = false)
+      library.name = name.normalize().split({' ', '\'', '\"', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '=', '{', '}'}).join()
+      
+      if sector == public:
+        while true:
+          let url = ask("URL (required):", allowBlank = false)
+          if not url.isUrl():
+            error(fmt"{url} is not a valid URL")
+          else:
+            library.path = url
+            break
+      else:
+        library.path = getCurrentDir()
 
-  library.name = cfg.getRequiredField("Package", "name")
-  library.path = cfg.getOptionalField("Package", "url")
-  library.vcs = 
-    # TODO add a gitRepoType function (really, add hg functionality)
-    if library.name.getLibraryDir().exists: "git"
-    else: "none"
-  library.description = cfg.getRequiredField("Package", "description")
-  library.license = cfg.getOptionalField("Package", "license")
+      library.vcs =
+        if getCurrentDir().exists(): "git"
+        else: "none"
+      library.description = ask("Enter a description for this library (required):", allowBlank = false)
+      if library.description.isEmptyOrWhiteSpace():
+        fatal("library description is a required entry; aborting")
 
-  # if we changed anything in the config, write it?  This writes anyway, send file to field proc?
-  cfg.writeConfig(file)
+      library.license = ask("License:", allowBlank = true)
+      library.parents = %[]
+      library.children = %[]
+    
+      while true:
+        let dependency = ask("Dependency (optional):", allowBlank = true)
+        if dependency.isEmptyOrWhiteSpace():
+          break
+
+        if dependency.isAvailable() or dependency.isInstalled():
+          library.parents.add(%dependency)
+        else:
+          warning(fmt"dependency {dependency} not found in public or private libraries; libraries must be " &
+            "installed or published before they can be referenced as a dependency")
+    else:
+      error("Library publication cancelled at user request")
+
   result = library
 
 proc handleLibraries*(patterns: var seq[string], display = true) =

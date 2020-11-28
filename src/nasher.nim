@@ -79,7 +79,7 @@ when isMainModule:
     if cmd notin ["init", "config", "alias", "list"]:
       opts.verifyBinaries
 
-    if cmd notin ["init", "config", "alias"] and
+    if cmd notin ["init", "config", "alias", "publish"] and
        not loadPackageFile(pkg, getPackageFile()):
          fatal("This is not a nasher project. Please run nasher init.")
 
@@ -95,6 +95,8 @@ when isMainModule:
       list(opts, pkg)
     of "uninstall":
       uninstall(opts)
+    of "publish":
+      publish(opts)
     of "convert", "compile", "pack", "install", "play", "test", "serve":
       # see if we're doing library stuff for the install command
       if opts.get("list") == "libraries" or (opts.get("targets").len > 0 and opts.get("targets") notin getTargetNames(pkg)):

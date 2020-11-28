@@ -247,6 +247,10 @@ proc parseCmdLine(opts: Options) =
             opts["library"] = val
           of "public", "private": 
             opts.putKeyOrHelp("level", key)
+        of "publish":
+          case key
+          of "public", "private":
+            opts.putKeyOrHelp("level", key)
         else:
           opts[key] = val
     else: discard
