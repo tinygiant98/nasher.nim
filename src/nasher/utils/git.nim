@@ -72,12 +72,40 @@ proc exists*(branch, repo: string): bool =
   withDir(repo):
     execCmdEx(fmt"git show-ref --verify refs/heads/{branch}").exitCode == 0
 
-proc delete*(auth: var Option[Auth], repo: string) =
-  ## Deletes GitHub repository repo for auth.user
-  if auth.isNone():
-    auth = getAuth()
+proc commit*(dir, file, message: string, throw = false) =
+  ## Creates a commit in dir for file with message
+  withDir(dir):
+    let gitResult = execCmdEx("git commit $1 -m \"$2\"" % [file, message])
+    if gitResult.exitCode != 0 and throw:
+      debug("Commit failed: $1" % gitResult.output.strip)
 
-  if auth.isSome():
+proc push*(auth: var Option[Auth], dir, repo, branch: string, throw = false) =
+  ## Pushes changes on repo/branch to remote
+  if auth.verify().isSome():
+    debug("Pushing to $1/$2[$3]" % [auth.get.user, repo, branch])
+    
+    withDir(dir):
+      let gitResult = execCmdEx("git push https://$1@github.com/$2/$3 $4" % [auth.get.token, auth.get.user, repo, branch])
+      if gitResult.exitCode != 0 and throw:
+        debug("Push failed: $1" % gitResult.output.strip)
+  else:
+    debug("Push failed; unable to create Auth")
+
+proc pr*(auth: var Option[Auth], user, repo, library, branch: string) =
+  ## Creates a pull request against user/repo
+  debug("Attempting to create Pull Request against $1/$2" % [user, repo])
+
+  if auth.verify().isSome():
+    let body = """{"title": "Add library $1",
+                   "head": "$2:$3",
+                   "base": "master"}""" % [library, auth.get.user, branch]
+    auth.apiPostContent(user, repo, "pulls", body)
+  else:
+    debug("Attempt to create Pull Request failed; unable to create Auth")
+
+proc delete*(auth: var Option[Auth], repo: string) =
+  ## Deletes GitHub repository auth.user/repo
+  if auth.verify().isSome():
     auth.apiDeleteContent(auth.get.user, repo)
 
 proc forkExists(auth: var Option[Auth], repo: string): bool =
@@ -85,20 +113,18 @@ proc forkExists(auth: var Option[Auth], repo: string): bool =
   result = auth.apiGetContent(auth.get.user, repo, "fork").getBool()
 
 proc fork*(auth: var Option[Auth], user, repo: string): bool =
-  ## Forks GitHub repository user/repo for auth.user
+  ## Forks GitHub repository user/repo as auth.user/repo
   debug("Attempting to fork $1/$2" % [user, repo])
   result = false
   
-  if auth.isNone():
-    auth = getAuth()
-
-  if auth.isSome():
+  if auth.verify().isSome():
     if not auth.forkExists(repo):
       auth.apiPostContent(user, repo, "forks")
       result = auth.forkExists(repo)
       debug("Fork $1/$2 $3created" % [user, repo, if result == false: "not " else: ""])
     else:
       debug("Fork $1/$2 already exists; no action taken" % [user, repo])
+      result = true
   else:
     debug("Attempt to create fork failed; unable to create Auth")
 

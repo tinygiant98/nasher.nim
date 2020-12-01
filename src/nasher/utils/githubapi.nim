@@ -4,7 +4,7 @@ import cli
 type
   Auth* = object
     user*: string
-    token: string
+    token*: string
     http: HttpClient
 
 const
@@ -76,15 +76,16 @@ proc getAuth*: Option[Auth] =
   let userData = result.get.http.getContent(apiUrl % apiUser).parseJson()
   result.get.user = userData["login"].getStr()
 
+proc verify*(auth: var Option[Auth]): Option[Auth] =
+  if auth.isNone(): getAuth()
+  else: auth
+
 proc apiGetContent*(auth: var Option[Auth], user, repo, primaryKey: string, secondaryKey = ""): JsonNode =
   ## Sends an API getContent request to github.com
   result = nil
   debug("Attempting to send http getContent request: $1" % apiUrl % apiRepository % [user, repo])
 
-  if auth.isNone():
-    auth = getAuth()
-
-  if auth.isSome():
+  if auth.verify().isSome():
     try:
       let 
         #auth = getAuth()
@@ -106,10 +107,7 @@ proc apiPostContent*(auth: var Option[Auth], user, repo, request: string, body =
   ## Sends an API postContent request to github.com
   debug("Attempting to send http postContent request: $1" % apiUrl % apiRepository % [user, repo] / request)
 
-  if auth.isNone():
-    auth = getAuth()
-
-  if auth.isSome():
+  if auth.verify().isSome():
     try:
       let
         url = apiUrl % apiRepository % [user, repo] / request
@@ -126,10 +124,7 @@ proc apiDeleteContent*(auth: var Option[Auth], user, repo: string) =
   ## Sends an API deleteContent request to github.com
   debug("Attempting to send http deleteContent request: $1" % apiUrl % apiRepository % [user, repo])
 
-  if auth.isNone():
-    auth = getAuth()
-
-  if auth.isSome():
+  if auth.verify().isSome():
     try:
       let
         url = apiUrl % apiRepository % [user, repo]
