@@ -55,7 +55,19 @@ import cli, git, manifest
 ##  `nasher uninstall [-l:]<library> [options]`
 ##  
 ## Publish ======================================
-##  public/private
+## Publishes and installs a library.  If available, values from nasher.cfg are used to populate the required fields.
+## If nasher.cfg is not available, the user is prompted for the required fields.  All fields have validity checks and,
+## when able, are populated automatically based on available information.  If private, the library's path is taken from
+## the path where the command was run.  If publish, a url is required.  Depenencies can be added either via prompt (if no
+## nasher.cfg) or by adding keys to a [Dependencies] section in nasher.cfg.  If no sector is provided, private is
+## assumed.
+## 
+##  `nasher publish [--public|private]`
+## 
+## If publshed publicly, the master packages.json has the packages modified and a PR made against it, much like nimble's
+## methodology.  Publicly published libraries should not have any entries in the ``children`` field.  That fields
+## is meant specifically to track dependencies as installed locally.
+## 
 ## Unpublish ====================================
 ##  public (private just uses uninstall)
 ## Update =======================================
@@ -130,8 +142,7 @@ proc getRequiredField*(cfg: var Config, section, key: string, prompt = true): st
       result = ask(question, allowBlank = false)
       cfg.setSectionKey(section, key, result)
     else:
-      fatal(fmt"You must include a value for the library's {key}.  Please insert a value " &
-            fmt"for {key} in the {section} section of nasher.cfg")
+      fatal(fmt"Please insert a value for {key} in the {section} section of nasher.cfg")
 
 proc getLibrariesDir*(): string =
   ## Returns the base libraries directory (parent folder for all public libraries)

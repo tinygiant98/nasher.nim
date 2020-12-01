@@ -1,5 +1,5 @@
-import os, osproc, strformat, strutils, uri
-import cli
+import std/[json, options, os, osproc, strformat, strutils, uri]
+import cli, githubapi
 
 from shared import withDir
 
@@ -21,6 +21,8 @@ proc gitEmail*: string =
 
 proc gitPull*(repo = getCurrentDir(), throw = false) =
   ## pull the repo
+  # TODO add branch?
+  # use rest api to get primary branch?
   withDir(repo):
     let gitResult = execCmdEx("git pull")
 
@@ -44,7 +46,7 @@ proc gitRemote*(repo = getCurrentDir()): string =
       if result.endsWith(".git"):
         result.setLen(result.len - 4)
 
-      if result.parseUri.scheme == "":
+      if result.parseUri().scheme == "":
         let ssh = parseUri("ssh://" & result)
         result = ("https://$1/$2$3") % [ssh.hostname, ssh.port, ssh.path]
     else: result = ""
@@ -65,11 +67,41 @@ proc exists*(repo: string): bool =
   withDir(repo):
     execCmdEx("git rev-parse --is-inside-work-tree").output.strip == "true"
 
-proc exists*(branch: string, repo: string): bool =
+proc exists*(branch, repo: string): bool =
   ## Check for branch existence
   withDir(repo):
     execCmdEx(fmt"git show-ref --verify refs/heads/{branch}").exitCode == 0
+
+proc delete*(auth: var Option[Auth], repo: string) =
+  ## Deletes GitHub repository repo for auth.user
+  if auth.isNone():
+    auth = getAuth()
+
+  if auth.isSome():
+    auth.apiDeleteContent(auth.get.user, repo)
+
+proc forkExists(auth: var Option[Auth], repo: string): bool =
+  # Internal, auth is assumed some
+  result = auth.apiGetContent(auth.get.user, repo, "fork").getBool()
+
+proc fork*(auth: var Option[Auth], user, repo: string): bool =
+  ## Forks GitHub repository user/repo for auth.user
+  debug("Attempting to fork $1/$2" % [user, repo])
+  result = false
   
+  if auth.isNone():
+    auth = getAuth()
+
+  if auth.isSome():
+    if not auth.forkExists(repo):
+      auth.apiPostContent(user, repo, "forks")
+      result = auth.forkExists(repo)
+      debug("Fork $1/$2 $3created" % [user, repo, if result == false: "not " else: ""])
+    else:
+      debug("Fork $1/$2 already exists; no action taken" % [user, repo])
+  else:
+    debug("Attempt to create fork failed; unable to create Auth")
+
 proc branch(repo: string, default = ""): string =
   ## Gets the current repo branch
   withDir(repo):

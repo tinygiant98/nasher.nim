@@ -95,6 +95,7 @@ proc installParents(library: Library, installedManifest: var Manifest): bool =
       result = true
 
 proc installTarget(opts: Options, pkg: PackageRef): bool =
+  ## Installs a target into installDir
   let
     cmd = opts["command"]
     file = opts["file"]
@@ -162,6 +163,7 @@ proc installTarget(opts: Options, pkg: PackageRef): bool =
   return cmd != "install"
 
 proc publish*(opts: Options) =
+  ## Publishes a nasher library
   var
     file = getLibrariesDir() / installedLibraries
     installedManifest = parseLibraryManifest(file)
@@ -169,11 +171,8 @@ proc publish*(opts: Options) =
     library = parseLibrary(sector)
   
   if sector == public:
-    echo fmt"Publicly publish {library.name}"
-    echo $library
-  else:
-    echo fmt"Privately publish {library.name}"
-    echo $library
+    #do the PR thing
+    discard
 
   if installParents(library, installedManifest):
     library.installLibrary(installedManifest, sector)
@@ -181,6 +180,7 @@ proc publish*(opts: Options) =
   installedManifest.write(target = file)
 
 proc install*(opts: Options, pkg: PackageRef): bool {.discardable.} =
+  ## Routing function for installing targets and libraries
   var manifest = parseLibraryManifest(getLibrariesDir() / installedLibraries)
 
   if opts.get("list") == "libraries":
