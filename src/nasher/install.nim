@@ -1,5 +1,5 @@
-import json, os, strformat, strutils, tables
-import utils/[cli, git, libraries, manifest, nwn, options, shared]
+import json, options, os, strformat, strutils, tables, times
+import utils/[cli, git, githubapi, libraries, manifest, nwn, options, shared]
 
 const
   helpInstall* = """
@@ -171,6 +171,56 @@ proc publish*(opts: Options) =
     library = parseLibrary(sector)
   
   if sector == public:
+    var auth = getAuth()
+    if auth.isSome():
+      let 
+        # TODO oop fix this, don't need to shadow and create confusion
+        library = masterRepo.split("/").pop()
+        repo = getLibrariesDir() / masterFolder
+
+      if auth.forkExists(library):
+        if "master".checkout(repo):
+          if repo.getUpstream() != masterRepo & ".git":
+            repo.setUpstream(masterRepo & ".git")
+
+          repo.pullUpstream()
+      else:
+        if auth.fork(masterRepo.splitPath().head.splitPath().tail, masterRepo.splitPath().tail):
+          let url = auth.apiGetContent(auth.get.user, masterRepo.splitPath().tail, "html_url").getStr()
+
+          removeDir(repo)
+          url.clone(getLibrariesDir(), masterFolder)
+          repo.setUpstream(masterRepo & ".git")
+        else:
+          #couldn't create the fork?
+          discard
+
+      let branch = "add-" & "name" & getTime().utc().format("HHmm")
+      if branch.checkout(repo, create = true):
+        # edit packages.json
+        # stage/commit packages.json
+        # push packages.json
+        # pr
+        discard
+
+
+      # create a new uniquely named branch -> git checkout -b <branch>
+      # make changes to the json, verify and add the package -> git commit ...
+      # push changes to the fork -> git push ...
+      # create a pull request against the just-pushed branch
+
+  when false:
+    cd pkgsDir:
+      editJson(p, url, tags, downloadMethod)
+      let branchName = "add-" & p.name & getTime().utc().format("HHmm")
+      doCmd("git checkout -B " & branchName)
+      doCmd("git commit packages.json -m \"Added package " & p.name & "\"")
+      display("Pushing", "to remote of fork.", priority = HighPriority)
+      doCmd("git push https://" & auth.token & "@github.com/" & auth.user & "/packages " & branchName)
+      let prUrl = createPullRequest(auth, p.name, branchName)
+    display("Success:", "Pull request successful, check at " & prUrl , Success, HighPriority)
+    
+    
     #do the PR thing
     discard
 

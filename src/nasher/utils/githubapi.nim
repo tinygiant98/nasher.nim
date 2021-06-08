@@ -25,7 +25,7 @@ proc enterNewToken(auth: var Option[Auth]) =
   debug("Saving github API token to $1" % apiTokenFile)
   writeFile(apiTokenFile, auth.get.token)
 
-proc getNewToken(auth: var Option[Auth]) =
+proc createNewToken(auth: var Option[Auth]) =
   ## Opens default browser to github.com api token creation site
   display("Info", "Please create a personal access token on GitHub.com.  To use the automated functions " &
     "within nasher, this token must be granted, at a minimum, access to public repositories.  When you're " &
@@ -60,7 +60,7 @@ proc getAuth*: Option[Auth] =
     of enter:
       result.enterNewToken()
     of create:
-      result.getNewToken()
+      result.createNewToken()
     of exit:
       fatal("user opted to end operation")
 

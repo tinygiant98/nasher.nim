@@ -89,7 +89,7 @@ const
   masterFolder* = "__library-master"
   installedLibraries* = "installed.json"
   publicLibraries* = masterFolder / "packages.json"
-  masterRepo* = "https://github.com/tinygiant98/packages"  # eventually change this to a repo in SM's github
+  masterRepo* = "https://github.com/squattingmonk/nasher-packages"  # eventually change this to a repo in SM's github
 
 #Works
 proc parseLibraryManifest*(file: string): Manifest =

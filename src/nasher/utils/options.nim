@@ -443,9 +443,9 @@ proc parsePackageFile(pkg: PackageRef, file: string) =
         of "branch": target.branch = e.value
         else:
           # TODO this doesn't work: how to distinguish between aliases and rules?
-          if e.key.isEscaped():
-            target.rules.add((e.key, e.value))
-          else:
+          #if e.key.isEscaped():
+          #  target.rules.add((e.key, e.value))
+          #else:
             target.aliases[e.key] = e.value.expandPath(true)
       of "rules":
         pkg.rules.add((e.key, e.value))

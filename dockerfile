@@ -10,7 +10,8 @@ ENV PATH="/root/.nimble/bin:$PATH"
 RUN nimble install nasher@#${NASHER_VERSION} -y
 RUN nasher config --nssFlags:"-n /nwn/data -o" \
     && nasher config --installDir:"/nasher/install" \
-    && nasher config --userName:"nasher"
+    && nasher config --userName:"nasher" \
+    && nasher config --nssCompiler:"/usr/local/bin/nwnsc"
 WORKDIR /nasher
 RUN bash -c "mkdir -pv /nasher/install/{erf,hak,modules,tlk}"
 ENTRYPOINT [ "nasher" ]

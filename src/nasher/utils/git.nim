@@ -19,7 +19,7 @@ proc gitEmail*: string =
     gitResult.output.strip
   else: ""
 
-proc gitPull*(repo = getCurrentDir(), throw = false) =
+proc gitPull*(repo = getCurrentDir(), branch: string, throw = false) =
   ## pull the repo
   # TODO add branch?
   # use rest api to get primary branch?
@@ -57,6 +57,19 @@ proc gitInit*(repo = getCurrentDir()): bool =
   withDir(repo):
     execCmdEx("git init").exitCode == 0
 
+proc setUpstream*(repo, upstream: string) =
+  withDir(repo):
+    discard execCmdEx("git remote add upstream $1" % upstream)
+
+proc getUpstream*(repo: string): string =
+  ## Returns the upstream for the specified repo, if it exists
+  withDir(repo):
+    let gitResult = execCmdex("git remote get-url upstream")
+    if gitResult.exitCode == 0:
+      gitResult.output.strip
+    else:
+      ""
+
 proc empty(repo: string): bool =
   ## Check if repo has any commits
   withDir(repo):
@@ -78,6 +91,11 @@ proc commit*(dir, file, message: string, throw = false) =
     let gitResult = execCmdEx("git commit $1 -m \"$2\"" % [file, message])
     if gitResult.exitCode != 0 and throw:
       debug("Commit failed: $1" % gitResult.output.strip)
+
+proc pullUpstream*(repo: string) =
+  ## Mirrors upstream master
+  withDir(repo):
+    discard execCmdEx("git reset --hard upstream/master")
 
 proc push*(auth: var Option[Auth], dir, repo, branch: string, throw = false) =
   ## Pushes changes on repo/branch to remote
@@ -108,9 +126,10 @@ proc delete*(auth: var Option[Auth], repo: string) =
   if auth.verify().isSome():
     auth.apiDeleteContent(auth.get.user, repo)
 
-proc forkExists(auth: var Option[Auth], repo: string): bool =
-  # Internal, auth is assumed some
-  result = auth.apiGetContent(auth.get.user, repo, "fork").getBool()
+proc forkExists*(auth: var Option[Auth], repo: string): bool =
+  ## Checks is GitHub repository auth.user/repo exists as a fork
+  if auth.verify().isSome():
+    result = auth.apiGetContent(auth.get.user, repo, "fork").getBool()
 
 proc fork*(auth: var Option[Auth], user, repo: string): bool =
   ## Forks GitHub repository user/repo as auth.user/repo
@@ -133,7 +152,7 @@ proc branch(repo: string, default = ""): string =
   withDir(repo):
     execCmdEx("git rev-parse --abbrev-ref HEAD").output.strip
 
-proc checkout(branch: string, repo: string, create = false, throw = false): bool = 
+proc checkout*(branch: string, repo: string, create = false, throw = false): bool = 
   ## Checkout desired branch, if it exists. If not, prompts for creation or
   ## uses of current branch. If can't checkout because of an error, do something else?
   var
