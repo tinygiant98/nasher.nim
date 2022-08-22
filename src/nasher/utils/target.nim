@@ -5,8 +5,8 @@ type
     ## Raised when the package parser encounters an error
 
   Target* = ref object
-    name*, description*, file*, branch*, parent*: string
-    modName*, modMinGameVersion*, modDescription*: string
+    name*, description*, file*, branch*, modName*, parent*: string
+    modMinGameVersion*, modDescription*, scriptModuleLoad*: string
     includes*, excludes*, filters*, flags*, groups*: seq[string]
     variables*: seq[KeyValuePair]
     rules*: seq[Rule]
@@ -206,6 +206,7 @@ proc parseCfgPackage(s: Stream, filename = "nasher.cfg"): seq[Target] =
         of "modName": target.modName = e.value
         of "modMinGameVersion": target.modMinGameVersion = e.value
         of "modDescription": target.modDescription = e.value
+        of "scriptModuleLoad": target.scriptModuleLoad = e.value
         of "group": target.groups.add(e.value)
         of "flags": target.flags.add(e.value)
         # Keep for backwards compatibility, but prefer [{package,target}.sources]

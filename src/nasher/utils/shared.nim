@@ -35,6 +35,9 @@ const PackLoopOpts = """
   --modDescription:<description>
                          Sets the module's description, viewable in module
                          properties
+  --scriptModuleLoad:<script>
+                         Sets the module's OnModuleLoad script to <script> if
+                         the referenced script exists in the module resources
   --onMultipleSources:<method>
                          How to handle multiple sources for the same file
                          [choices: choose (default), default (accept the first),

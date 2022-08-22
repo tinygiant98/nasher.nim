@@ -354,6 +354,7 @@ Some fields, while optional, are inherited from the package by
 | `modName`           | no         | the name to give a module target file                                     |
 | `modMinGameVersion` | no         | the minimum game version to run a module target file                      |
 | `modDescription`    | no         | the description for a module target file                                  |
+| `scriptModuleLoad`  | no         | script to assign to the OnModuleLoad event in module.ifo                  |
 
 Normally, the first target specified in `nasher.cfg` will be the default.
 However, you can manually specify the target to use as the default in the
@@ -362,6 +363,7 @@ However, you can manually specify the target to use as the default in the
 | Field     | Repeatable | Description                    |
 | ---       | ---        | ---                            |
 | `default` | no         | the name of the default target |
+
 
 #### `[target]`
 
@@ -372,19 +374,18 @@ are not set for this target. Normally, missing values are inherited from the
 the `parent` key. Its value is the name of another target. The parent target
 must be specified before the child target.
 
-| Field               | Repeatable | Inherited | Description                                                                         |
-| ---                 | ---        | ---       | ---                                                                                 |
-| `name`              | no         | no        | name of the target; must be unique among targets                                    |
-| `default`           | no         | no        | whether the target should be the default (true/false)                               |
-| `description`       | no         | no        | an optional field that describes the target                                         |
-| `parent`            | no         | no        | a target to inherit missing values from (if missing, will inherit from `[package]`) |
-| `file`              | no         | yes       | filename including extension be created; can optionally include path info           |
-| `group`             | yes        | yes       | a group this target belongs to; used to build multiple targets at once              |
-| `flags`             | yes        | yes       | command line arguments to send to nwnsc at compile-time                             |
-| `branch`            | no         | yes       | the git branch to use for source files                                              |
-| `modName`           | no         | yes       | the name to give a module target file                                               |
-| `modMinGameVersion` | no         | yes       | the minimum game version to run a module target file                                |
-| `modDescription`    | no         | yes       | the description for a module target file                                            |
+| Field               | Repeatable | Inherited | Description                                                               |
+| ---                 | ---        | ---       | ---                                                                       |
+| `name`              | no         | no        | name of the target; must be unique among targets                          |
+| `description`       | no         | no        | an optional field that describes the target                               |
+| `file`              | no         | yes       | filename including extension be created; can optionally include path info |
+| `group`             | yes        | yes       | a group this target belongs to; used to build multiple targets at once    |
+| `flags`             | yes        | yes       | command line arguments to send to nwnsc at compile-time                   |
+| `branch`            | no         | yes       | the git branch to use for source files                                    |
+| `modName`           | no         | yes       | the name to give a module target file                                     |
+| `modMinGameVersion` | no         | yes       | the minimum game version to run a module target file                      |
+| `modDescription`    | no         | yes       | the description for a module target file                                  |
+| `scriptModuleLoad`  | no         | yes       | script to assign to the OnModuleLoad event in module.ifo                  |
 
 #### `[*.sources]`
 
@@ -714,6 +715,11 @@ by passing the key/value pair as an option to the command.
   Only relevant when `convert` will be called.
   - default: ""
   - note: If blank, the description in the `module.ifo` file will be unchanged.
+- `scriptModuleLoad`: the script to assign to the OnModuleLoad event in module.ifo
+  - default: ""
+  - note: If blank, the load event script in `module.ifo` will be unchanged.
+  - note: If the referenced script does not exist in the module resources, this
+    value will remain unchanged and a warning will be provided.
 - `onMultipleSources`: an action to perform when multiple source files of the
   same name are found for a target.
   - default: `choose`
@@ -887,6 +893,7 @@ separately unless you want to convert files without compiling and packing.
 | `--modName:<name>`              | sets the `Mod_Name` value in `module.ifo` to `<name>`              |
 | `--modMinGameVersion:<version>` | sets the `Mod_MinGameVersion` value in `module.ifo` to `<version>` |
 | `--modDescription:<desc>`       | sets the `Mod_Description` value in `module.ifo` to `<desc>`       |
+| `--scriptModuleLoad:<script>`   | sets the `Mod_OnModLoad` value in `module.ifo` to `<scripts>`      |
 
 #### Examples
 
@@ -983,6 +990,7 @@ run it separately unless you want to pack files without installing.
 | `--modName:<name>`              | sets the `Mod_Name` value in `module.ifo` to `<name>`              |
 | `--modMinGameVersion:<version>` | sets the `Mod_MinGameVersion` value in `module.ifo` to `<version>` |
 | `--modDescription:<desc>`       | sets the `Mod_Description` value in `module.ifo` to `<desc>`       |
+| `--scriptModuleLoad:<script>`   | sets the `Mod_OnModLoad` value in `module.ifo` to `<script>`       |
 | `--abortOnCompileError`         | abort packing if errors encountered during compilation             |
 | `--packUnchanged`               | continue packing a file if there are no changed files included     |
 
@@ -1031,6 +1039,7 @@ the module (`.mod`) file.
 | `--modName:<name>`              | sets the `Mod_Name` value in `module.ifo` to `<name>`              |
 | `--modMinGameVersion:<version>` | sets the `Mod_MinGameVersion` value in `module.ifo` to `<version>` |
 | `--modDescription:<desc>`       | sets the `Mod_Description` value in `module.ifo` to `<desc>`       |
+| `--scriptModuleLoad:<script>`   | sets the `Mod_OnModLoad` value in `module.ifo` to `<script>`       |
 | `--abortOnCompileError`         | abort installation if errors encountered during compilation        |
 | `--packUnchanged`               | continue packing a file if there are no changed files included     |
 
@@ -1071,6 +1080,7 @@ command is only valid for module targets.
 | `--modName:<name>`              | sets the `Mod_Name` value in `module.ifo` to `<name>`              |
 | `--modMinGameVersion:<version>` | sets the `Mod_MinGameVersion` value in `module.ifo` to `<version>` |
 | `--modDescription:<desc>`       | sets the `Mod_Description` value in `module.ifo` to `<desc>`       |
+| `--scriptModuleLoad:<script>`   | sets the `Mod_OnModLoad` value in `module.ifo` to `<script>`       |
 | `--abortOnCompileError`         | abort launching if errors encountered during compilation           |
 | `--packUnchanged`               | continue packing a file if there are no changed files included     |
 | `--gameBin:<path>`              | path to the `nwmain` binary file                                   |
