@@ -6,7 +6,7 @@ type
 
   Target* = ref object
     name*, description*, file*, branch*, modName*, parent*: string
-    modMinGameVersion*, modDescription*, scriptModuleLoad*: string
+    modMinGameVersion*, modDescription*, scriptModuleLoad: string
     includes*, excludes*, filters*, flags*, groups*: seq[string]
     variables*: seq[KeyValuePair]
     rules*: seq[Rule]
