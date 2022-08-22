@@ -202,6 +202,7 @@ proc updateIfo*(dir: string, opts: options.Options, target: Target) =
     ifoFile = dir / "module.ifo"
     areas = toSeq(walkFiles(dir / "*.are")).mapIt(it.splitFile.name)
     gits = toSeq(walkFiles(dir / "*.git")).mapIt(it.splitFile.name)
+    scripts = toSeq(walkFiles(dir / "*.ncs")).mapIt(it.splitFile.name)
 
   if not fileExists(ifoFile):
     return
@@ -223,6 +224,7 @@ proc updateIfo*(dir: string, opts: options.Options, target: Target) =
     moduleName = opts.get("modName", target.modName)
     moduleVersion = opts.get("modMinGameVersion", target.modMinGameVersion)
     moduleDescription = opts.get("modDescription", target.modDescription)
+    scriptModuleLoad = opts.get("scriptModuleLoad", target.scriptModuleLoad)
 
   # Area List update
   if entryArea notin areas:
@@ -248,11 +250,20 @@ proc updateIfo*(dir: string, opts: options.Options, target: Target) =
   # Module Name Update
   if moduleName.len > 0 and moduleName != ifoJson["Mod_Name"]["value"]["0"].getStr:
     ifoJson["Mod_Name"]["value"]["0"] = %moduleName
-    success("module name set to " & moduleName)
+    success(fmt"module name set to {moduleName}")
 
+  # Module Description Update
   if moduleDescription.len > 0 and moduleDescription != ifoJson["Mod_Description"]["value"]["0"].getStr:
     ifoJson["Mod_Description"]["value"]["0"] = %moduleDescription
-    success("module description set to " & moduleDescription)
+    success(fmt"module description set to {moduleDescription}")
+
+  # OnModuleLoad update
+  if scriptModuleLoad.len > 0 and scriptModuleLoad != ifoJson["Mod_OnModLoad"]["value"].getStr:
+    if scriptModuleLoad in scripts:
+      ifoJson["Mod_OnModLoad"]["value"] = %scriptModuleLoad
+      success("OnModuleLoad event script set to " & scriptModuleLoad)
+    else:
+      warning(fmt"OnModuleLoad event script not set; {scriptModuleLoad}.ncs does not exist")
 
   # Module Min Game Version Update
   if moduleVersion.len > 0:
