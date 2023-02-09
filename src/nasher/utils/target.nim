@@ -5,8 +5,8 @@ type
     ## Raised when the package parser encounters an error
 
   Target* = ref object
-    name*, description*, file*, branch*, modName*, parent*: string
-    modMinGameVersion*, modDescription*, scriptModuleLoad*: string
+    name*, description*, file*, branch*, parent*: string
+    modName*, modMinGameVersion*, modDescription*, scriptModuleLoad*: string
     includes*, excludes*, filters*, flags*, groups*: seq[string]
     variables*: seq[KeyValuePair]
     rules*: seq[Rule]

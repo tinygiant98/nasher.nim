@@ -364,7 +364,6 @@ However, you can manually specify the target to use as the default in the
 | ---       | ---        | ---                            |
 | `default` | no         | the name of the default target |
 
-
 #### `[target]`
 
 At least one target must be specified. This section provides a target name,
