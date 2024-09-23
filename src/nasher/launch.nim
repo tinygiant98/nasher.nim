@@ -65,7 +65,7 @@ proc launch*(opts: Options, target: Target) =
   path = path.expandPath
 
   let
-    file = target.file
+    file = target.opts.get("file")
     (_, name, ext) = file.splitFile
     (dir, bin) = path.splitPath
 

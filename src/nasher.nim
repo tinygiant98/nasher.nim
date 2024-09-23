@@ -42,7 +42,7 @@ template withTargets(pkgFile: string, opts: Options, body: untyped): untyped =
 
   try:
     for target {.inject.} in targets.filter(opts.get("targets")):
-      let branch  = opts.get("branch", target.branch)
+      let branch = opts.get("branch", target.opts.get("branch"))
       if branch.len > 0:
         display("Git Branch:", gitSetBranch(dir, branch))
       body

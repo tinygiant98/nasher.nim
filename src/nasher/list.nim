@@ -18,13 +18,15 @@ proc displayField(field, val: string) =
   display(capitalizeAscii(field) & ":", val)
 
 proc list*(target: Target) =
-  display("Target:", target.name, priority = HighPriority)
+  display("Target:", target.opts.get("name"), priority = HighPriority)
   for field, val in fieldPairs(target[]):
-    when val is string:
-      if field != "name":
-        displayField(field, val)
-    elif val is seq[string]:
-      displayField(field, val.join("\n"))
+    case field
+    of "opts":
+      for k, _ in target.opts.pairs:
+        displayField(k, target.opts[k])
+    of "lists":
+      for k, _ in target.lists.pairs:
+        displayField(k, target.lists[k].join("\n"))
     else:
       discard
 

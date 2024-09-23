@@ -3,6 +3,8 @@ from sequtils import mapIt, toSeq, deduplicate
 from unicode import toLower
 from sugar import collect
 
+export tables
+
 when defined(Windows):
   import registry
 
@@ -173,10 +175,10 @@ iterator walkSourceFiles*(target: Target): string =
   ## matching exclude patterns.
   const globOpts = defaultGlobOptions - {GlobOption.DirLinks} + {GlobOption.Absolute}
   let excluded = collect:
-    for pattern in target.excludes:
+    for pattern in target.lists.get("exclude"):
       for file in walkGlob(pattern, options = globOpts):
         file
-  for pattern in target.includes:
+  for pattern in target.lists.get("include"):
     for file in walkGlob(pattern, options = globOpts):
       if file notin excluded:
         yield file

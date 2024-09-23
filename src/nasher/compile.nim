@@ -23,7 +23,7 @@ $#
 
 proc isSrcFile(target: Target, file: string): bool =
   ## Returns whether `file` is a source file of `target`.
-  file.matchesAny(target.includes) and not file.matchesAny(target.excludes)
+  file.matchesAny(target.lists.get("include")) and not file.matchesAny(target.lists.get("exclude"))
 
 proc executable(script: string): bool =
   ## Returns whether ``script`` contains a main() or StartingConditional()
@@ -121,10 +121,10 @@ proc getUpdated(updatedNSS: var seq[string], files: seq[string]): seq[string] =
 
 proc getFlags(compiler: Compiler, opts: Options, target: Target): seq[string] =
   let nssFlags = opts.get("nssFlags", compilerFlags[compiler.ord]).parseCmdLine
-  var flags = nssFlags & target.flags
+  var flags = nssFlags & target.lists.get("flags")
 
   case compiler:
-    of Organic:
+    of Nsc:
       let
         installDir = opts.get("installDir", getEnv("NWN_HOME")).expandPath
         rootDir = getNwnRootDir().expandPath
@@ -133,13 +133,13 @@ proc getFlags(compiler: Compiler, opts: Options, target: Target): seq[string] =
       if rootDir.len > 0: flags = flags & "--root" & rootDir
 
       result = flags & "-c"
-    of Legacy:
+    of Nwnsc:
       result = flags
 
 proc compile*(opts: Options, target: Target, updatedNss: var seq[string], exitCode: var int): bool =
   let
     cmd = opts["command"]
-    cacheDir = (".nasher" / "cache" / target.name)
+    cacheDir = (".nasher" / "cache" / target.opts.get("name"))
     abortOnCompileError =
       if opts.hasKey("abortOnCompileError"):
         if opts.get("abortOnCompileError", false): Answer.No
@@ -159,7 +159,7 @@ proc compile*(opts: Options, target: Target, updatedNss: var seq[string], exitCo
   withDir(cacheDir):
     # If we are only compiling one file...
     var scripts: seq[string]
-    let skips = mapIt(opts.get("skipCompile").split(';') & target.skips, it.extractFilename)
+    let skips = mapIt(opts.get("skipCompile").split(';') & target.lists.get("skipCompile"), it.extractFilename)
 
     if cmd == "compile" and opts.hasKey("files"):
       for file in opts["files"].split(';'):
@@ -176,7 +176,7 @@ proc compile*(opts: Options, target: Target, updatedNss: var seq[string], exitCo
                scripts.add(fileName)
         else:
           fatal("Cannot compile $1: not in sources for target \"$2\"" %
-                [file, target.name])
+                [file, target.opts.get("name")])
     else:
       # Only compile scripts that have not been compiled since update
       var files: seq[string]
@@ -201,7 +201,7 @@ proc compile*(opts: Options, target: Target, updatedNss: var seq[string], exitCo
     scripts.keepItIf(not it.matchesAny(skips))
     if scripts.len > 0:
       let
-        chunkSize = opts.get("nssChunks", 500)
+        chunkSize = opts.get("nssChunks", target.opts.get("nssChunks", 500))
         chunks = scripts.len div chunkSize + 1
       display("Compiling", $scripts.len & " scripts")
       for chunk, scripts in distribute(scripts, chunks):

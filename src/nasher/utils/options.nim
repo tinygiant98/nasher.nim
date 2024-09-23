@@ -78,7 +78,7 @@ proc get*[T](opts: Options, keys: openarray[string], default: T = ""): T =
         elif T is enum:
           result = parseEnum[T](opts[key])
         else:
-          raise newException(Defect, "get() is not implemented for type " & $(type(T)) )
+          raise newException(Defect, "options.get() is not implemented for type " & $(type(T)) )
       except ValueError:
         discard
 

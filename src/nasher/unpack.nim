@@ -83,17 +83,18 @@ proc unpack*(opts: Options, target: Target) =
   # the installed target file.
   let
     installDir = opts.get("installDir", getEnv("NWN_HOME")).expandPath
+    targetFile = target.opts.get("file")
     file =
       if opts.hasKey("file"): opts.get("file").expandPath.absolutePath
       else:
-        let fileName = target.file.extractFilename
-        case target.file.getFileExt
+        let fileName = targetFile.extractFilename
+        case targetFile.getFileExt
         of "mod": installDir / "modules" / fileName
         of "erf": installDir / "erf" / fileName
         of "hak": installDir / "hak" / fileName
         of "tlk": installDir / "tlk" / fileName
-        else: dir / target.file
-    branch = opts.get("branch", target.branch)
+        else: dir / targetFile
+    branch = opts.get("branch", target.opts.get("branch"))
 
   if file == "":
     help(helpUnpack)
@@ -118,7 +119,7 @@ proc unpack*(opts: Options, target: Target) =
   var
     tmpDir = ".nasher" / "tmp"
 
-  display("Extracting", fmt"{shortFile} to {dir} using target {target.name}")
+  display("Extracting", fmt"{shortFile} to {dir} using target {targetFile}")
   setCurrentDir(dir)
 
   if useFolder:
@@ -149,7 +150,7 @@ proc unpack*(opts: Options, target: Target) =
       file.moveFile(fileLower)
 
   var
-    manifest = parseManifest(target.name)
+    manifest = parseManifest(target.opts.get("name"))
     deleted: seq[string] = @[]
 
   let
@@ -162,10 +163,10 @@ proc unpack*(opts: Options, target: Target) =
   let
     gffUtil = opts.findBin("gffUtil", "nwn_gff", "gff utility")
     gffFlags = opts.get("gffFlags")
-    gffFormat = opts.get("gffFormat", "json")
+    gffFormat = opts.get("gffFormat", target.opts.get("gffFormat", "json"))
     tlkUtil = opts.findBin("tlkUtil", "nwn_tlk", "tlk utility")
     tlkFlags = opts.get("tlkFlags")
-    tlkFormat = opts.get("tlkFormat", "json")
+    tlkFormat = opts.get("tlkFormat", target.opts.get("tlkFormat", "json"))
 
   # Scan manifest and compare to sourceFiles. If a file was removed from the
   # source tree, ask-remove from package before scanning.

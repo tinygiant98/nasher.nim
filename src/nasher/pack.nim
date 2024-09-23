@@ -42,14 +42,15 @@ proc pack*(opts: Options, target: Target): bool =
     return cmd != "pack"
 
   let
-    file = target.file
-    cacheDir = ".nasher" / "cache" / target.name
+    file = target.opts.get("file")
+    name = target.opts.get("name")
+    cacheDir = ".nasher" / "cache" / name
     fileTime = getNewestFile(cacheDir).getLastModificationTime
 
-  display("Packing", fmt"files for target {target.name} into {file}")
+  display("Packing", fmt"files for target {name} into {file}")
 
   var
-    manifest = parseManifest(target.name)
+    manifest = parseManifest(name)
 
   if fileExists(file):
     if (manifest.getChangedFiles(cacheDir).len == 0):
@@ -102,7 +103,7 @@ proc pack*(opts: Options, target: Target): bool =
     removeDir(packDir)
     copyDirWithPermissions(cacheDir, packDir)
     const globOpts = {IgnoreCase, Hidden, Files}
-    for filter in target.filters:
+    for filter in target.lists.get("filter"):
       for file in glob.walkGlob(filter, packDir, globOpts):
         info("Filtering", file)
         removeFile(packDir / file)

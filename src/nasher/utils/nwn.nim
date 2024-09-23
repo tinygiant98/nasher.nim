@@ -220,9 +220,9 @@ proc updateIfo*(dir: string, opts: options.Options, target: Target) =
   let
     entryArea = ifoJson["Mod_Entry_Area"]["value"].getStr
     removeUnused = opts.get("removeUnusedAreas", true)
-    moduleName = opts.get("modName", target.modName)
-    moduleVersion = opts.get("modMinGameVersion", target.modMinGameVersion)
-    moduleDescription = opts.get("modDescription", target.modDescription)
+    moduleName = opts.get("modName", target.opts.get("modName"))
+    moduleVersion = opts.get("modMinGameVersion", target.opts.get("modMinGameVersion"))
+    moduleDescription = opts.get("modDescription", target.opts.get("modDescription"))
 
   # Area List update
   if entryArea notin areas:

@@ -24,7 +24,7 @@ $#
 proc install*(opts: Options, target: Target): bool =
   let
     cmd = opts["command"]
-    file = target.file
+    file = target.opts.get("file")
     dir = opts.getOrPut("installDir", getNwnHomeDir()).expandPath
 
   if opts.get("noInstall", false):

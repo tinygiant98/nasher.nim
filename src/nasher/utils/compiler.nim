@@ -3,8 +3,8 @@ import os, osproc, parseutils, pegs, sequtils, streams, strutils
 import cli
 
 type Compiler* = enum
-  Organic = "nwn_script_comp" #default
-  Legacy = "nwnsc"
+  Nsc = "nwn_script_comp"
+  Nwnsc = "nwnsc"
 
 const compilerFlags* =
   # Default compiler flags; ordered referenced to `Compiler` enum above
@@ -13,7 +13,7 @@ const compilerFlags* =
 proc parseCompilerOutput(line: var string, compiler: Compiler): int =
   ## Intercepts the compiler's output and converts it into nasher's cli format.
   case compiler:
-    of Organic:
+    of Nsc:
       if line =~ peg"""
           output <- error / result
           error <- type data* path file errorData data
@@ -36,7 +36,7 @@ proc parseCompilerOutput(line: var string, compiler: Compiler): int =
             display("Unknown Compiler Output", line)
       elif line.startsWith "Usage":
         result = 2
-    of Legacy:
+    of Nwnsc:
       var
         token: string
         parsed = line.parseUntil(token, ':') + 2

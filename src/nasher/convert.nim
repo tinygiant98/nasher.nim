@@ -23,7 +23,8 @@ proc convert*(opts: Options, target: Target, updatedNss: var seq[string]): bool 
 
   let
     cmd = opts["command"]
-    cacheDir = ".nasher" / "cache" / target.name
+    name = target.opts.get("name")
+    cacheDir = ".nasher" / "cache" / name
 
   if opts.get("noConvert", false):
     return cmd != "convert"
@@ -32,13 +33,12 @@ proc convert*(opts: Options, target: Target, updatedNss: var seq[string]): bool 
     category = if cmd.endsWith('e'): cmd[0..^2] & "ing" else:  cmd & "ing"
     gffUtil = opts.findBin("gffUtil", "nwn_gff", "gff utility")
     gffFlags = opts.get("gffFlags", "-p")
-    gffFormat = opts.get("gffFormat", "json")
     tlkUtil = opts.findBin("tlkUtil", "nwn_tlk", "tlk utility")
     tlkFlags = opts.get("tlkFlags")
-    tlkFormat = opts.get("tlkFormat", "json")
+    tlkFormat = opts.get("tlkFormat", target.opts.get("tlkFormat", "json"))
     multiSrcAction = opts.get("onMultipleSources", MultiSrcAction.None)
 
-  display(category.capitalizeAscii, "target " & target.name)
+  display(category.capitalizeAscii, "target " & name)
   var outFiles: Table[string, seq[string]]
   for file in target.walkSourceFiles:
     let
@@ -53,10 +53,10 @@ proc convert*(opts: Options, target: Target, updatedNss: var seq[string]): bool 
       outFiles[outFile].add(srcFile)
 
   if outFiles.len == 0:
-    error("No source files found for target " & target.name)
+    error("No source files found for target " & name)
     return false
 
-  display("Updating", "cache for target " & target.name)
+  display("Updating", "cache for target " & name)
   if opts.get("clean", false):
     removeDir(cacheDir)
     removeFile(cacheDir & ".json")
@@ -66,7 +66,7 @@ proc convert*(opts: Options, target: Target, updatedNss: var seq[string]): bool 
   # We use a separate manifest from the one used for packing and unpacking
   # because the user may convert or compile without packing or unpacking. This
   # manifest will contain the sha1 of the source file and the out file.
-  var manifest = parseManifest("cache" / target.name)
+  var manifest = parseManifest("cache" / name)
 
   # Remove deleted files from the cache
   for file in walkFiles(cacheDir / "*"):
